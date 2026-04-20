@@ -1,6 +1,11 @@
 """Layout registry — auto-discovers every module in this directory.
 
-Each layout module must export:
+These are EXAMPLE layouts — reference implementations, not templates. The
+product is `shared.py` (primitives) + the `layout-synth` skill that writes
+new layout modules per brand. Treat the files here as starting points to
+copy, diverge from, or ignore.
+
+Each module must export:
     LAYOUT_NAME:  str       — public name used in variant.layout
     render:       callable  — (canvas, variant, brand, size, band_h) -> None
 

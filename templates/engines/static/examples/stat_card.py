@@ -69,10 +69,3 @@ def render(canvas, variant, brand, size, band_h):
     if source:
         sbbox = draw.textbbox((0, 0), source, font=source_font)
         draw.text((pad_x, H - pad_bottom - (sbbox[3] - sbbox[1])), source, font=source_font, fill=brand.muted)
-
-    if brand.wordmark:
-        wordmark_font = brand.font("serif_italic", 64)
-        wm_bbox = draw.textbbox((0, 0), brand.wordmark, font=wordmark_font)
-        wm_w = wm_bbox[2] - wm_bbox[0]
-        draw.text((W - pad_x - wm_w, H - pad_bottom - 40 - (wm_bbox[3] - wm_bbox[1])),
-                  brand.wordmark, font=wordmark_font, fill=brand.accent)

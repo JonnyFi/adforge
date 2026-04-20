@@ -7,3 +7,5 @@ adforge-*.tgz
 .backlog-*.md
 assets/*
 !assets/social-preview.png
+__pycache__/
+*.pyc

@@ -119,13 +119,10 @@ def render(canvas, variant, brand, size, band_h):
     if byline:
         draw.text((pad_x, H - pad_bottom - byline_size), byline, font=byline_font, fill=brand.muted)
 
-    if variant.get("hero_mode", "flat_brand_color") in ("flat_brand_color", "radiant_gradient") and brand.wordmark:
+    if variant.get("hero_mode", "flat_brand_color") in ("flat_brand_color", "radiant_gradient") and brand.domain:
         mono_small = brand.font("mono_medium", 36)
-        wordmark_font = brand.font("serif_italic", 72)
         rule_y = H - pad_bottom - 120
         draw.line([(pad_x, rule_y), (W - pad_x, rule_y)], fill=brand.muted, width=2)
-        draw.text((pad_x, rule_y + 24), brand.wordmark, font=wordmark_font, fill=brand.accent)
-        if brand.domain:
-            right = brand.domain.upper()
-            right_w = tracked_width(draw, right, mono_small, 0.22)
-            draw_tracked(draw, (W - pad_x - right_w, rule_y + 46), right, mono_small, brand.muted, 0.22)
+        right = brand.domain.upper()
+        right_w = tracked_width(draw, right, mono_small, 0.22)
+        draw_tracked(draw, (W - pad_x - right_w, rule_y + 46), right, mono_small, brand.muted, 0.22)

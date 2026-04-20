@@ -1,7 +1,11 @@
 import { Composition } from "remotion";
-import { OpsConsole, type OpsConsoleVariant } from "./engines/OpsConsole";
-import { ProductMockup, type MockupVariant } from "./engines/ProductMockup";
-import { Walkthrough, type WalkthroughVariant } from "./engines/Walkthrough";
+import { OpsConsole, type OpsConsoleVariant } from "./examples/OpsConsole";
+import { ProductMockup, type MockupVariant } from "./examples/ProductMockup";
+import { Walkthrough, type WalkthroughVariant } from "./examples/Walkthrough";
+import {
+  PhoneNotifications,
+  type PhoneNotificationsVariant,
+} from "./examples/PhoneNotifications";
 
 const base = { fps: 30, width: 1080, height: 1920, durationInFrames: 270 };
 
@@ -82,6 +86,21 @@ const walkthroughExample: WalkthroughVariant = {
   ],
 };
 
+const phoneNotificationsExample: PhoneNotificationsVariant = {
+  appName: "ExampleApp",
+  lockscreenTime: "22:07",
+  lockscreenDate: "Tuesday, 20 April",
+  notifications: [
+    { at: 30, time: "19:02", title: "Shift started", body: "Route 3 · 11 stops" },
+    { at: 95, time: "19:14", title: "Stop 4/11", body: "+€11,20 earned" },
+    { at: 160, time: "19:41", title: "Bonus unlocked", body: "+€18,00 · peak window" },
+    { at: 220, time: "22:00", title: "Shift closed", body: "€94,80 · paid out" },
+  ],
+  totalLabel: "Tonight",
+  totalAmount: "€94,80",
+  totalAt: 240,
+};
+
 export const Root: React.FC = () => (
   <>
     <Composition
@@ -101,6 +120,12 @@ export const Root: React.FC = () => (
       component={Walkthrough}
       {...base}
       defaultProps={{ variant: walkthroughExample }}
+    />
+    <Composition
+      id="phone-notifications"
+      component={PhoneNotifications}
+      {...base}
+      defaultProps={{ variant: phoneNotificationsExample }}
     />
   </>
 );

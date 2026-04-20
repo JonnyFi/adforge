@@ -1,15 +1,14 @@
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
+import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { brand } from "../brand";
+import {
+  ChromeOverlay,
+  Headline,
+  Kicker,
+  Ticker,
+  type TickerRowSpec,
+} from "../primitives";
 
 export type TranscriptLine = { at: number; text: string };
-export type TickerRowType = { label: string; value: string; threshold: number };
-
 export type OpsConsoleVariant = {
   kicker: string;
   headline: string;
@@ -21,19 +20,13 @@ export type OpsConsoleVariant = {
     avatarLabel: string;
   };
   transcript: TranscriptLine[];
-  ticker: TickerRowType[];
+  ticker: TickerRowSpec[];
 };
 
 export const OpsConsole: React.FC<{ variant: OpsConsoleVariant }> = ({ variant }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
-
-  const headlineIn = spring({ frame, fps, config: { damping: 20 } });
+  const { fps } = useVideoConfig();
   const callIn = spring({ frame: frame - 25, fps, config: { damping: 22 } });
-  const tickerProgress = interpolate(frame, [50, durationInFrames - 10], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
   const callSeconds = Math.max(0, Math.floor((frame - 25) / fps));
   const mm = String(Math.floor(callSeconds / 60)).padStart(2, "0");
   const ss = String(callSeconds % 60).padStart(2, "0");
@@ -49,34 +42,8 @@ export const OpsConsole: React.FC<{ variant: OpsConsoleVariant }> = ({ variant }
           height: "100%",
         }}
       >
-        <div
-          style={{
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: 26,
-            letterSpacing: 3,
-            color: brand.muted,
-            opacity: interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
-          }}
-        >
-          {variant.kicker}
-        </div>
-
-        <div
-          style={{
-            fontFamily: "Instrument Serif, serif",
-            fontSize: 110,
-            color: brand.ink,
-            lineHeight: 1.02,
-            transform: `translateY(${(1 - headlineIn) * 40}px)`,
-            opacity: headlineIn,
-          }}
-        >
-          {variant.headline}
-          <br />
-          <span style={{ fontStyle: "italic", color: brand.accent }}>
-            {variant.headlineItalic}
-          </span>
-        </div>
+        <Kicker text={variant.kicker} />
+        <Headline text={variant.headline} italic={variant.headlineItalic} />
 
         <CallCard
           mm={mm}
@@ -89,39 +56,9 @@ export const OpsConsole: React.FC<{ variant: OpsConsoleVariant }> = ({ variant }
         />
 
         <div style={{ flex: 1 }} />
-
-        <div
-          style={{
-            background: "rgba(30,24,19,0.04)",
-            borderRadius: 28,
-            padding: "12px 36px",
-          }}
-        >
-          {variant.ticker.map((row, i) => (
-            <TickerRow
-              key={i}
-              label={row.label}
-              value={row.value}
-              progress={tickerProgress}
-              threshold={row.threshold}
-              last={i === variant.ticker.length - 1}
-            />
-          ))}
-        </div>
-
-        {brand.wordmark && (
-          <div
-            style={{
-              fontFamily: "Instrument Serif, serif",
-              fontSize: 48,
-              fontStyle: "italic",
-              color: brand.accent,
-            }}
-          >
-            {brand.wordmark}
-          </div>
-        )}
+        <Ticker rows={variant.ticker} />
       </div>
+      <ChromeOverlay />
     </AbsoluteFill>
   );
 };
@@ -260,37 +197,6 @@ const Transcript: React.FC<{ frame: number; lines: TranscriptLine[] }> = ({ fram
           {l.text}
         </div>
       ))}
-    </div>
-  );
-};
-
-const TickerRow: React.FC<{
-  label: string;
-  value: string;
-  progress: number;
-  threshold: number;
-  last?: boolean;
-}> = ({ label, value, progress, threshold, last }) => {
-  const visible = progress > threshold ? 1 : 0;
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "22px 0",
-        borderBottom: last ? "none" : "1px solid rgba(30,24,19,0.08)",
-        fontSize: 30,
-        color: brand.ink,
-        opacity: visible,
-        transform: `translateX(${(1 - visible) * 20}px)`,
-        transition: "all 0.3s",
-      }}
-    >
-      <span style={{ fontFamily: "JetBrains Mono, monospace", color: brand.muted, fontSize: 26 }}>
-        {label}
-      </span>
-      <span style={{ fontWeight: 500 }}>{value}</span>
     </div>
   );
 };

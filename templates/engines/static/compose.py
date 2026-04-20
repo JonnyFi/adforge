@@ -7,8 +7,10 @@ writes a PNG.
 Usage:
     python3 engines/static/compose.py <variant.json> <format> <out.png>
 
-Layouts live in `engines/static/layouts/`. Drop a new module there (must export
-LAYOUT_NAME + render) and it's immediately available — no edits here.
+Layout modules live in `engines/static/examples/` — reference implementations
+built on `shared.py` primitives. For a brand-specific layout, call the
+`layout-synth` skill; it drops a new module next to the examples. Drop a new
+file there with LAYOUT_NAME + render and it's immediately available.
 """
 import argparse
 import json
@@ -18,8 +20,8 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 
-from shared import Brand, FORMATS, base_canvas, find_project_root  # noqa: E402
-from layouts import discover  # noqa: E402
+from shared import Brand, FORMATS, apply_chrome, base_canvas, find_project_root  # noqa: E402
+from examples import discover  # noqa: E402
 
 
 def main():
@@ -45,6 +47,7 @@ def main():
     size = FORMATS[args.format]
     canvas, band_h = base_canvas(size, variant, brand)
     registry[layout_name](canvas, variant, brand, size, band_h)
+    apply_chrome(canvas, variant, brand, size)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

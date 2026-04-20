@@ -75,11 +75,8 @@ def render(canvas, variant, brand, size, band_h):
             global_idx += 1
         cursor_y += line_h
 
-    wordmark_font = brand.font("serif_italic", 64)
     cta_font = brand.font("body_medium", 50)
     stamp_y = H - pad_bottom - 40
-    if brand.wordmark:
-        draw.text((pad_x, stamp_y), brand.wordmark, font=wordmark_font, fill=brand.accent)
     cta = variant.get("cta", "").strip() if variant.get("cta") else ""
     if cta:
         cta_bbox = draw.textbbox((0, 0), cta, font=cta_font)

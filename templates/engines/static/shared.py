@@ -205,3 +205,74 @@ def find_project_root(start):
         if (parent / "adforge.config.json").exists():
             return parent
     raise SystemExit("error: no adforge.config.json found — is this inside an adforge project?")
+
+
+_STYLE_TO_ROLE = {
+    "serif-italic": "serif_italic",
+    "serif-regular": "serif_regular",
+    "sans-medium": "body_medium",
+    "sans-semibold": "body_semibold",
+    "mono-uppercase": "mono_medium",
+}
+
+
+def _chrome_color(brand, key):
+    if not key:
+        return brand.accent
+    if hasattr(brand, key):
+        return getattr(brand, key)
+    raw = brand.data.get("colors", {}).get(key)
+    if raw:
+        return hex_to_rgb(raw)
+    if isinstance(key, str) and key.startswith("#"):
+        return hex_to_rgb(key)
+    return brand.accent
+
+
+def apply_chrome(canvas, variant, brand, size):
+    """Paint brand-level chrome on top of a rendered layout.
+
+    Reads `brand.json` → `chrome`. Does nothing if chrome isn't configured.
+
+    Chrome is opt-in per brand, not per layout. Brands that want a wordmark on
+    every creative configure it here once; layouts stay chrome-free so every
+    brief can produce a structurally different ad.
+    """
+    chrome = brand.data.get("chrome") or {}
+    wm = chrome.get("wordmark") or {}
+    if not wm.get("show"):
+        return canvas
+    text = brand.wordmark
+    if not text:
+        return canvas
+
+    W, H = size
+    padding = int(wm.get("padding", 180))
+    position = wm.get("position", "bottom-left")
+    style = wm.get("style", "serif-italic")
+    font_size = int(wm.get("fontSize", 64))
+    color = _chrome_color(brand, wm.get("color", "accent"))
+
+    role = _STYLE_TO_ROLE.get(style, "serif_italic")
+    font = brand.font(role, font_size)
+    draw = ImageDraw.Draw(canvas)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3]
+
+    vpos, hpos = position.split("-", 1)
+    if hpos == "left":
+        x = padding
+    elif hpos == "right":
+        x = W - padding - text_w
+    else:
+        x = (W - text_w) // 2
+    if vpos == "top":
+        y = padding
+    else:
+        y = H - padding - text_h
+
+    if style == "mono-uppercase":
+        text = text.upper()
+    draw.text((x, y), text, font=font, fill=color)
+    return canvas
