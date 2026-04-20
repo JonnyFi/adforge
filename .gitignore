@@ -5,4 +5,5 @@ node_modules/
 .env.local
 adforge-*.tgz
 .backlog-*.md
-assets/
+assets/*
+!assets/social-preview.png
