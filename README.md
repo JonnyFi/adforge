@@ -32,7 +32,11 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 
 ## Why it exists
 
-Every time you touch a new agent or a new ad account, you end up rebuilding the same 6 things: a brief flow, a couple of static templates, a motion template, a Meta deploy script that doesn't duplicate ads, a review loop, a state file. adforge is that stack, extracted once, reusable.
+Running ads manually is tedious: assembling creatives in Canva or Figma, writing copy from scratch, keeping every variant on brand, uploading to Ads Manager one by one, and then circling back every few days to read the same insights screen. Most of that is mechanical.
+
+And every time you touch a new agent or a new ad account, you end up rebuilding the same 6 things: a brief flow, a couple of static templates, a motion template, a Meta deploy script that doesn't duplicate ads, a review loop, a state file.
+
+adforge is that stack, extracted once, reusable. Tell an agent what you want, get rendered creatives on-brand, deploy idempotently, review in the same session.
 
 ## Commands
 
