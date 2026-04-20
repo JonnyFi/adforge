@@ -53,6 +53,15 @@ Rules — non-negotiable:
 - **Size maps per format**: font sizes and offsets vary by aspect. Follow the `{"4x5": ..., "1x1": ..., "9x16": ...}` dict pattern from existing layouts.
 - **Respect `band_h`**: if `band_h > 0`, the top of the canvas is already occupied by a hero photo (set by `hero_mode: "top_band"`). Start layout content below it.
 - **Layout modules are PIL-only.** The module itself should import only `PIL` + `shared`. Keep it portable.
+- **Canvas is RGB, not RGBA.** Don't call `canvas.alpha_composite(...)` — it errors with `image has wrong mode`. For soft shadows / translucent overlays, build a grayscale `L` mask, blur it, then `canvas.paste(color_layer, (x, y), mask)`. Example shadow:
+  ```python
+  from PIL import Image, ImageDraw, ImageFilter
+  shadow_mask = Image.new("L", (w + 60, h + 60), 0)
+  ImageDraw.Draw(shadow_mask).rounded_rectangle([(30, 30), (w + 30, h + 30)], radius=48, fill=90)
+  shadow_mask = shadow_mask.filter(ImageFilter.GaussianBlur(20))
+  shadow_layer = Image.new("RGB", (w + 60, h + 60), (0, 0, 0))
+  canvas.paste(shadow_layer, (x - 30, y - 20), shadow_mask)
+  ```
 - **Asset preprocessing is open.** If the reference needs a cutout portrait, a duotoned product shot, a generated illustration, a masked photo, etc. — do that **outside the layout** as a prep step (ad-hoc venv, rembg, Flux, Photoshop, whatever works). The layout consumes the finished PNG. Don't bake one-off capabilities into adforge core; leave the creative problem-solving open.
 
 Module shape:
