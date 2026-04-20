@@ -232,6 +232,69 @@ fi
 deactivate
 
 # ---------------------------------------------------------------------------
+# Test 2c — derive_placements + CTA-less render regression
+# ---------------------------------------------------------------------------
+head "Test 2c: creative defaults (placements + no-CTA)"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+# derive_placements: static 4x5 -> Feed, static 9x16 -> Stories (no Reels),
+# motion 9x16 -> Reels + Stories. Runs directly against the template module.
+if python3 - <<PY > "$WORK/placements.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/adapters/meta")
+from deploy import derive_placements
+
+cases = [
+    ([{"creative_type": "image", "format": "4x5"}],
+     {"fb": ["feed"], "ig": ["stream"]}),
+    ([{"creative_type": "image", "format": "9x16"}],
+     {"fb": ["story"], "ig": ["story"]}),
+    ([{"creative_type": "video", "format": "9x16"}],
+     {"fb": ["facebook_reels", "story"], "ig": ["reels", "story"]}),
+    ([{"creative_type": "image", "format": "4x5"},
+      {"creative_type": "image", "format": "9x16"}],
+     {"fb": ["feed", "story"], "ig": ["story", "stream"]}),
+]
+for ads, want in cases:
+    got = derive_placements(ads)
+    assert got["publisher_platforms"] == ["facebook", "instagram"], got
+    assert got["facebook_positions"] == want["fb"], (got, want)
+    assert got["instagram_positions"] == want["ig"], (got, want)
+print("ok")
+PY
+then
+  pass "derive_placements matches expected matrix"
+else
+  fail "derive_placements unit test"
+  cat "$WORK/placements.log"
+fi
+
+# Render the quote-card example (no cta field) to prove the CTA guard works.
+OUT_NOCTA="$PROJECT/outputs/static/quote-card_4x5.png"
+if python3 "$PROJECT/engines/static/compose.py" \
+     "$PROJECT/variants/quote-card-example.json" 4x5 "$OUT_NOCTA" > "$WORK/compose-nocta.log" 2>&1; then
+  pass "compose without cta exited 0"
+else
+  fail "compose without cta exit code"
+  tail -30 "$WORK/compose-nocta.log"
+fi
+
+if [ -f "$OUT_NOCTA" ]; then
+  size=$(wc -c < "$OUT_NOCTA" | tr -d ' ')
+  if [ "$size" -gt 20000 ]; then
+    pass "no-cta PNG exists (${size} bytes)"
+  else
+    fail "no-cta PNG too small (${size} bytes)"
+  fi
+else
+  fail "no no-cta PNG produced"
+fi
+
+deactivate
+
+# ---------------------------------------------------------------------------
 # Test 3 — motion render (ops-console example)
 # ---------------------------------------------------------------------------
 if [ $SKIP_MOTION -eq 1 ]; then
