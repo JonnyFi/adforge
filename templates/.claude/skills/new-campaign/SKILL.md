@@ -117,6 +117,59 @@ Five resolvable fields: `interests`, `work_positions`, `work_employers`, `indust
 
 Set `advantage_audience: true` for Advantage+, `false` for hard. If skipped, Meta defaults to Advantage+ on v23+ anyway; we set it explicitly so plan behavior is version-independent.
 
+### Custom audiences + lookalikes — optional, plan-level
+
+Retargeting and lookalike scaling lives in a top-level `audiences` block, separate from adset targeting. `deploy.py` creates each audience once (keyed by name in state) and adsets reference them by name in `targeting.custom_audiences` / `targeting.excluded_custom_audiences`.
+
+Four types, all in the same array:
+
+```json
+"audiences": [
+  {
+    "name": "visitors-90d",
+    "type": "pixel",
+    "retention_days": 90
+  },
+  {
+    "name": "page-engagers-365d",
+    "type": "engagement",
+    "object_type": "page",
+    "object_id": "<META_PAGE_ID>",
+    "retention_days": 365
+  },
+  {
+    "name": "customer-list-q1",
+    "type": "custom_list",
+    "source_csv": "assets/audiences/customers.csv"
+  },
+  {
+    "name": "lookalike-AT-1pct",
+    "type": "lookalike",
+    "seed": "visitors-90d",
+    "country": "AT",
+    "ratio": 0.01
+  }
+]
+```
+
+Then reference them in any adset:
+
+```json
+"targeting": {
+  "custom_audiences": ["lookalike-AT-1pct"],
+  "excluded_custom_audiences": ["visitors-90d"]
+}
+```
+
+Notes:
+
+- `pixel` uses `META_PIXEL_ID` from `.env` unless the audience entry overrides with its own `pixel_id`. Default rule is any PageView.
+- `engagement` needs `object_id` + `object_type` (e.g. `page`, `ig_business_profile`, `video`). No defaults — you tell Meta which object's engagers to build from.
+- `custom_list` hashes the CSV client-side (SHA-256 of trimmed, lowercase values) and uploads in 10k-row batches. CSV header row defines the schema — `email`, `phone`, `first_name`, `last_name`, `zip`, `country`, etc. Raw PII never leaves the machine.
+- `lookalike.seed` is the `name` of another audience in this same `audiences` block. Meta creates seed first, lookalike second — order matters in the array. External seed? Pass `"seed": {"id": "12345"}` instead.
+- Custom/lookalike audiences don't go through `resolve.py` — they're created by `deploy.py` itself. `resolve.py` is only for interest-targeting search.
+- Don't ask about audiences unprompted on the first campaign. Pure cold-prospect plans should have no `audiences` block at all. Mention this path when the user brings up retargeting, nurture, or scaling a winner.
+
 ### Resolve, review, deploy
 
 Two paths depending on whether `META_ACCESS_TOKEN` is set. Tell the user upfront which branch applies:
