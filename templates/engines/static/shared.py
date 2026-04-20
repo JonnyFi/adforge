@@ -1,6 +1,6 @@
 """Shared primitives for adforge static layouts.
 
-Every layout module under `layouts/` imports from here. This file owns:
+Every layout module under `examples/` imports from here. This file owns:
     - Brand (color + font loader)
     - text helpers (wrap_text, draw_tracked, tracked_width)
     - image helpers (crop_cover, build_radiant_gradient, build_readability_halo)
@@ -9,6 +9,7 @@ Every layout module under `layouts/` imports from here. This file owns:
 
 Layouts receive (canvas, variant, brand, size, band_h) and draw on the canvas.
 """
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -47,8 +48,25 @@ class Brand:
         self.radiant = data.get("radiant_gradient")
 
     def font(self, role, size):
-        fname = self.font_files[role]
-        return ImageFont.truetype(str(self.font_dir / fname), size=size)
+        fname = self.font_files.get(role)
+        if fname:
+            path = self.font_dir / fname
+            try:
+                return ImageFont.truetype(str(path), size=size)
+            except (OSError, IOError):
+                if role not in Brand._warned_roles:
+                    print(
+                        f"[adforge] font missing for role '{role}' at {path}; "
+                        f"falling back to PIL default. Run setup or drop the TTF into {self.font_dir}/",
+                        file=sys.stderr,
+                    )
+                    Brand._warned_roles.add(role)
+        try:
+            return ImageFont.load_default(size=size)
+        except TypeError:
+            return ImageFont.load_default()
+
+    _warned_roles = set()
 
 
 # --- text utilities -------------------------------------------------------

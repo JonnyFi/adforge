@@ -13,13 +13,16 @@
   },
   "fonts": {
     "dir": "./fonts",
+    "serif_family": "Instrument Serif",
+    "sans_family": "Inter",
+    "mono_family": "JetBrains Mono",
     "serif_regular": "InstrumentSerif-Regular.ttf",
     "serif_italic": "InstrumentSerif-Italic.ttf",
     "mono_medium": "JetBrainsMono-Medium.ttf",
     "body_regular": "Inter-Regular.ttf",
     "body_medium": "Inter-Medium.ttf",
     "body_semibold": "Inter-SemiBold.ttf",
-    "_comment": "drop .ttf files into ./fonts/. defaults above are Google Fonts (Instrument Serif, JetBrains Mono, Inter)."
+    "_comment": "family names drive Motion (Remotion CSS fontFamily); filenames drive Static (PIL). setup fills both from website fonts, Google Fonts auto-download, or the default trio. missing TTFs fall back to PIL default without crashing."
   },
   "voice": {
     "principles": [

@@ -32,7 +32,7 @@ export const OpsConsole: React.FC<{ variant: OpsConsoleVariant }> = ({ variant }
   const ss = String(callSeconds % 60).padStart(2, "0");
 
   return (
-    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: "Inter, sans-serif" }}>
+    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: `"${brand.fonts.sansFamily}", sans-serif` }}>
       <div
         style={{
           padding: "72px 72px 64px",
@@ -98,7 +98,7 @@ const CallCard: React.FC<{
         />
         <span
           style={{
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: `"${brand.fonts.monoFamily}", monospace`,
             fontSize: 22,
             letterSpacing: 2,
             color: brand.muted,
@@ -108,7 +108,7 @@ const CallCard: React.FC<{
           {call.status}
         </span>
       </div>
-      <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 26, color: brand.ink }}>
+      <span style={{ fontFamily: `"${brand.fonts.monoFamily}", monospace`, fontSize: 26, color: brand.ink }}>
         {mm}:{ss}
       </span>
     </div>
@@ -126,7 +126,7 @@ const CallCard: React.FC<{
 
     <div
       style={{
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: `"${brand.fonts.monoFamily}", monospace`,
         fontSize: 22,
         color: brand.muted,
         lineHeight: 1.4,
@@ -153,7 +153,7 @@ const Avatar: React.FC<{ label: string; frame: number }> = ({ label, frame }) =>
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "Instrument Serif, serif",
+        fontFamily: `"${brand.fonts.serifFamily}", serif`,
         fontStyle: "italic",
         fontSize: 42,
         transform: `scale(${pulseScale})`,

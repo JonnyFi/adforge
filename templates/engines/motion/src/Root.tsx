@@ -1,4 +1,5 @@
 import { Composition } from "remotion";
+import { fontFaceCss } from "./brand";
 import { OpsConsole, type OpsConsoleVariant } from "./examples/OpsConsole";
 import { ProductMockup, type MockupVariant } from "./examples/ProductMockup";
 import { Walkthrough, type WalkthroughVariant } from "./examples/Walkthrough";
@@ -103,6 +104,7 @@ const phoneNotificationsExample: PhoneNotificationsVariant = {
 
 export const Root: React.FC = () => (
   <>
+    <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
     <Composition
       id="ops-console"
       component={OpsConsole}

@@ -58,6 +58,7 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 - **Bring your own creative** — if you already have finished PNGs/MP4s, skip compose entirely; `deploy.py` takes any asset path.
 - **Meta adapter** — deploy, review, actions (pause / resume / scale / delete), idempotent by name via `.adforge/state.json`
 - **Brand tokens** — one `brand.json` drives both Python and Remotion
+- **Fonts handled during setup** — agent reads your website's font-family, auto-downloads matching Google Fonts into `./fonts/`, or falls back to a sane default trio. TTFs feed both engines; missing files fall back to PIL default / CSS generic instead of crashing.
 - **Agent-portable** — plain markdown skills. No runtime you have to trust.
 
 ## Try this

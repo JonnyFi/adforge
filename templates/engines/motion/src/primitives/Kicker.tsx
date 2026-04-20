@@ -21,7 +21,7 @@ export const Kicker: React.FC<KickerProps> = ({
   return (
     <div
       style={{
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: `"${brand.fonts.monoFamily}", monospace`,
         fontSize,
         letterSpacing: trackingPx,
         color,

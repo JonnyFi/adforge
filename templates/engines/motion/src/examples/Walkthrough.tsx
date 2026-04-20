@@ -36,7 +36,7 @@ const STAGE_H = 1370;
 
 export const Walkthrough: React.FC<{ variant: WalkthroughVariant }> = ({ variant }) => {
   return (
-    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: "Inter, sans-serif" }}>
+    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: `"${brand.fonts.sansFamily}", sans-serif` }}>
       <div
         style={{
           padding: "60px 60px 48px",

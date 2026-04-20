@@ -1,5 +1,6 @@
 import brandJson from "../../../../brand.json";
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { brand } from "../brand";
 
 type Position =
   | "bottom-left"
@@ -117,15 +118,15 @@ const WordmarkText: React.FC<{ text: string; config: WordmarkConfig }> = ({ text
   };
 
   if (style === "serif-italic") {
-    baseStyle.fontFamily = "Instrument Serif, serif";
+    baseStyle.fontFamily = `"${brand.fonts.serifFamily}", serif`;
     baseStyle.fontStyle = "italic";
     baseStyle.fontSize = config.fontSize ?? 48;
   } else if (style === "sans-medium") {
-    baseStyle.fontFamily = "Inter, sans-serif";
+    baseStyle.fontFamily = `"${brand.fonts.sansFamily}", sans-serif`;
     baseStyle.fontWeight = 500;
     baseStyle.fontSize = config.fontSize ?? 40;
   } else if (style === "mono-uppercase") {
-    baseStyle.fontFamily = "JetBrains Mono, monospace";
+    baseStyle.fontFamily = `"${brand.fonts.monoFamily}", monospace`;
     baseStyle.textTransform = "uppercase";
     baseStyle.letterSpacing = 3;
     baseStyle.fontSize = config.fontSize ?? 30;

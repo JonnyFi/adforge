@@ -88,6 +88,30 @@ Then open `brand.json` and walk the user through customising:
 
 Show the diff before writing.
 
+### Fonts — done during brand setup, not later
+
+Fonts have to land in `./fonts/` **and** have their `family` + filename entries in `brand.json.fonts` before the first render. Both engines share the same block: static (PIL) loads filenames, motion (Remotion) loads family names via `@font-face` pointing at the same TTFs. Do this now, don't defer.
+
+While Playwright is open (you already used it for colors), read the computed `font-family` of `h1`, `body`, and the primary button. You get three candidate family names (often the same serif/sans repeated, sometimes a brand-specific display face).
+
+Then offer the user **three paths**:
+
+**A) "I already have the TTFs."** — Ask for the folder path. Copy the `.ttf` files into `./fonts/` at project root (create the dir if missing). Ask which file is which role (serif regular/italic, sans regular/medium/semibold, mono medium) — write names into `brand.json.fonts`. Ask for the CSS family names if the filenames don't make it obvious. If only one family is provided, reuse it for all three roles (`serif_family = sans_family = mono_family`) — it'll look homogeneous but it'll render.
+
+**B) "Pull from my website."** — For each family name Playwright detected, try to auto-download:
+  1. Check if it's a **Google Font** — the authoritative list is https://fonts.google.com. Fetch `https://fonts.googleapis.com/css2?family=<FamilyUrlEncoded>:ital,wght@0,400;0,500;0,600;1,400` with a non-Chrome User-Agent (e.g. `Mozilla/5.0 (Windows NT 6.1; rv:60.0) Gecko/20100101 Firefox/60.0`) — old UAs get TTF URLs instead of WOFF2. Parse the `url(...)` entries and curl them into `./fonts/`.
+  2. Not a Google Font (custom brand face like "GT America", "Söhne") — you can't redistribute it. Tell the user: "This is a custom face we can't auto-download. Drop the TTFs into `./fonts/` and come back, or we'll use the Google defaults." Then fall through to path (C) for the roles that are still empty.
+  3. Write `serif_family` / `sans_family` / `mono_family` in `brand.json.fonts` to whatever Google family you downloaded (or the custom name if the user dropped files later).
+
+**C) "Just use the defaults."** — Download Instrument Serif (serif), Inter (sans), JetBrains Mono (mono) via the same Google Fonts CSS-API trick. These match the names already in the template `brand.json`. Filenames to save as:
+  - `InstrumentSerif-Regular.ttf`, `InstrumentSerif-Italic.ttf`
+  - `Inter-Regular.ttf`, `Inter-Medium.ttf`, `Inter-SemiBold.ttf`
+  - `JetBrainsMono-Medium.ttf`
+
+If Playwright isn't available or you can't extract a reliable family, skip to (C) and tell the user they can swap in custom TTFs later — it's a drop-in replacement.
+
+**Verification:** after fonts land, `ls ./fonts/` should show at least 3 files (minimum: one serif, one sans, one mono). `brand.json.fonts` should have `serif_family`, `sans_family`, `mono_family` strings plus the filename entries. If a TTF is missing at render, the static engine logs a warning and falls back to PIL's default, the motion engine falls back to the CSS generic (serif/sans-serif/monospace) — neither crashes, both render ugly. Tell the user so they know to fix it.
+
 ## 4. Chrome — brand mark on every creative (opt-in)
 
 Ask the user (in their `voice.locale` — translate the prompt if locale is non-English):
@@ -146,11 +170,7 @@ The same path resolves in both engines — `render.sh` auto-syncs `assets/` into
 
 Just write option (b)'s text-wordmark config. Tell the user: "If you ship a batch and the text wordmark feels off, come back and switch to a logo image or turn it off — it's a one-line edit in `brand.json`."
 
-## 5. Fonts
-
-Tell the user: drop `.ttf` files into `./fonts/` matching the names in `brand.json`, or change the names in `brand.json` to match files they already have. Defaults are Google Fonts (Instrument Serif, JetBrains Mono, Inter) — link them to https://fonts.google.com.
-
-## 6. Dry-run
+## 5. Dry-run
 
 Compose a static creative from `variants/example.json` and a motion from `variants/ops-console-example.json`. Show the user the output files. If that works, setup is done.
 

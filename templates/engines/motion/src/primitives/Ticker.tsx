@@ -53,7 +53,7 @@ export const Ticker: React.FC<TickerProps> = ({
           >
             <span
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: `"${brand.fonts.monoFamily}", monospace`,
                 color: brand.muted,
                 fontSize: labelFontSize,
               }}

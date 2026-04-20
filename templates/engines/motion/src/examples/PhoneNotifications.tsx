@@ -36,7 +36,7 @@ export const PhoneNotifications: React.FC<{ variant: PhoneNotificationsVariant }
     <AbsoluteFill
       style={{
         background: `linear-gradient(180deg, ${brand.cream} 0%, ${brand.creamAlt} 100%)`,
-        fontFamily: "Inter, sans-serif",
+        fontFamily: `"${brand.fonts.sansFamily}", sans-serif`,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -138,7 +138,7 @@ const PhoneFrame: React.FC<{
         <div
           style={{
             marginTop: 18,
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: `"${brand.fonts.monoFamily}", monospace`,
             fontSize: 20,
             letterSpacing: 2,
             opacity: 0.55,
@@ -209,7 +209,7 @@ const NotificationCard: React.FC<{ notification: PhoneNotification }> = ({ notif
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "Instrument Serif, serif",
+          fontFamily: `"${brand.fonts.serifFamily}", serif`,
           fontSize: 26,
           fontStyle: "italic",
           flexShrink: 0,
@@ -275,7 +275,7 @@ const RunningTotal: React.FC<{ visible: number; label: string; amount: string }>
   >
     <span
       style={{
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: `"${brand.fonts.monoFamily}", monospace`,
         fontSize: 18,
         letterSpacing: 2,
         textTransform: "uppercase",
@@ -286,7 +286,7 @@ const RunningTotal: React.FC<{ visible: number; label: string; amount: string }>
     </span>
     <span
       style={{
-        fontFamily: "Instrument Serif, serif",
+        fontFamily: `"${brand.fonts.serifFamily}", serif`,
         fontSize: 56,
         fontVariantNumeric: "tabular-nums",
         lineHeight: 1,

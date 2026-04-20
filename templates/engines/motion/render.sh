@@ -11,14 +11,19 @@
 
 set -euo pipefail
 
-VARIANT="${1:?variant JSON path required}"
+VARIANT_ARG="${1:?variant JSON path required}"
 COMPOSITION="${2:?composition id required}"
-OUT="${3:?output mp4 path required}"
+OUT_ARG="${3:?output mp4 path required}"
 
-if [[ ! -f "$VARIANT" ]]; then
-  echo "error: variant file not found: $VARIANT" >&2
+if [[ ! -f "$VARIANT_ARG" ]]; then
+  echo "error: variant file not found: $VARIANT_ARG" >&2
   exit 1
 fi
+
+# Resolve to absolute paths before cd'ing to the engine dir.
+VARIANT="$(cd "$(dirname "$VARIANT_ARG")" && pwd)/$(basename "$VARIANT_ARG")"
+mkdir -p "$(dirname "$OUT_ARG")"
+OUT="$(cd "$(dirname "$OUT_ARG")" && pwd)/$(basename "$OUT_ARG")"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -37,10 +42,16 @@ if [[ -d "$PROJECT_ROOT/assets" ]]; then
   cp -R "$PROJECT_ROOT/assets" public/assets
 fi
 
+# Expose project-root fonts/ under public/fonts/ so brand.ts @font-face
+# declarations (staticFile("fonts/<name>.ttf")) resolve during render.
+if [[ -d "$PROJECT_ROOT/fonts" ]]; then
+  mkdir -p public
+  rm -rf public/fonts
+  cp -R "$PROJECT_ROOT/fonts" public/fonts
+fi
+
 # Strip wrapper fields; pass only the inner variant payload as props
 PROPS="$(python3 -c "import json,sys; d=json.load(open('$VARIANT')); print(json.dumps({'variant': d.get('variant', d)}))")"
-
-mkdir -p "$(dirname "$OUT")"
 
 echo "[render] $COMPOSITION -> $OUT"
 npx remotion render src/index.ts "$COMPOSITION" "$OUT" --props="$PROPS"

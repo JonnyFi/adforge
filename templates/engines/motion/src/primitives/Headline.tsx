@@ -26,7 +26,7 @@ export const Headline: React.FC<HeadlineProps> = ({
   return (
     <div
       style={{
-        fontFamily: "Instrument Serif, serif",
+        fontFamily: `"${brand.fonts.serifFamily}", serif`,
         fontSize,
         color,
         lineHeight: 1.02,

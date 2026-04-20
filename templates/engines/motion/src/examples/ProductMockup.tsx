@@ -34,7 +34,7 @@ export const ProductMockup: React.FC<{ variant: MockupVariant }> = ({ variant })
   const clickFrame = 80;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: "Inter, sans-serif" }}>
+    <AbsoluteFill style={{ backgroundColor: brand.cream, fontFamily: `"${brand.fonts.sansFamily}", sans-serif` }}>
       <div
         style={{
           padding: "72px 72px 48px",
@@ -120,7 +120,7 @@ const BrowserChrome: React.FC<{ appName: string }> = ({ appName }) => (
       style={{
         flex: 1,
         textAlign: "center",
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: `"${brand.fonts.monoFamily}", monospace`,
         fontSize: 20,
         color: brand.muted,
       }}
