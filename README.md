@@ -21,9 +21,11 @@ adforge degrades gracefully — you can start without any keys and still render 
 | `META_AD_ACCOUNT_ID` | Same as above — target account | Ads Manager → Account Settings (format: `act_1234...`) |
 | `META_PAGE_ID` | Page to run ads from | Your FB page → About → Page ID |
 | `META_PIXEL_ID` *(optional)* | Conversion-optimized campaigns | Events Manager → Data Sources → Pixel ID |
-| `BFL_API_KEY` *(optional)* | AI-generated hero images via Flux | [bfl.ml/api](https://bfl.ml/api) (pay-as-you-go) |
+| `BFL_API_KEY` *(optional, tested default)* | AI-generated hero images via Flux | [bfl.ml/api](https://bfl.ml/api) (pay-as-you-go) |
 
-**Without any keys:** you can still scaffold, render static + motion creatives, and iterate locally. You just can't deploy or auto-generate heroes (use `hero_mode: "radiant_gradient"` or your own images instead).
+**On hero images:** Flux (BFL) is the tested default — that's what we've validated end-to-end. It's not required. adforge doesn't care where the PNG comes from: drop in OpenAI / Ideogram / Midjourney exports, a Figma render, or a flat `hero_mode: "radiant_gradient"` and the rest of the pipeline works the same.
+
+**Without any keys:** you can still scaffold, render static + motion creatives, and iterate locally. You just can't deploy to Meta or auto-generate heroes inside the pipeline.
 
 ## Install
 
@@ -46,7 +48,8 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 ## What you get
 
 - **4 user modes** — new-campaign, add-creative, review-performance, setup
-- **6 engines** — advertorial / stat-card / quote-card (static PIL) + ops-console / product-mockup / walkthrough (Remotion motion)
+- **Extensible layouts** — three static layouts out of the box (advertorial / stat-card / quote-card), three motion compositions (ops-console / product-mockup / walkthrough). Drop a new file into `engines/static/layouts/` and it auto-registers. Show the agent a reference creative or describe what you want — `layout-synth` skill drafts a new layout module on the spot.
+- **Bring your own creative** — if you already have finished PNGs/MP4s, skip compose entirely; `deploy.py` takes any asset path.
 - **Meta adapter** — deploy, review, actions (pause / resume / scale / delete), idempotent by name via `.adforge/state.json`
 - **Brand tokens** — one `brand.json` drives both Python and Remotion
 - **Agent-portable** — plain markdown skills. No runtime you have to trust.
