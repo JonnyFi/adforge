@@ -181,10 +181,224 @@ def apply_advantage_audience(targeting):
     targeting["targeting_automation"] = ta
 
 
+# plan-level audience type → Meta customaudiences `subtype`. See
+# https://developers.facebook.com/docs/marketing-api/audiences/reference/custom-audience-subtypes
+AUDIENCE_SUBTYPES = {
+    "custom_list": "CUSTOM",      # hashed customer file
+    "pixel":       "WEBSITE",     # pixel-based retargeting
+    "engagement":  "ENGAGEMENT",  # page/post/IG/video engagers
+    "lookalike":   "LOOKALIKE",
+}
+
+
+def _hash_row(value):
+    """Meta matching spec — SHA-256 of trimmed, lowercase UTF-8."""
+    return hashlib.sha256(value.strip().lower().encode("utf-8")).hexdigest()
+
+
+def upload_customer_file(meta, audience_id, csv_path):
+    """Upload hashed user records to a CUSTOM audience in 10k-row batches.
+
+    CSV header row defines the schema Meta expects (email, phone, first_name,
+    last_name, city, state, zip, country, …). Values are hashed client-side;
+    no raw PII leaves the machine.
+    """
+    import csv
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            raise SystemExit(f"customer file {csv_path} has no header row")
+        schema = [k.lower() for k in reader.fieldnames]
+        rows = [
+            [_hash_row(row[col]) if row.get(col) else "" for col in reader.fieldnames]
+            for row in reader
+        ]
+    if not rows:
+        print(f"  [skip upload] {csv_path}: no rows")
+        return
+    BATCH = 10000
+    for i in range(0, len(rows), BATCH):
+        batch = rows[i:i + BATCH]
+        meta.post(f"{audience_id}/users", {
+            "payload": json.dumps({"schema": schema, "data": batch}),
+        })
+        print(f"  [upload] {audience_id}: rows {i + 1}-{i + len(batch)}")
+
+
+def ensure_audience(meta, state, aud, project_root, default_pixel_id):
+    """Create a custom/lookalike audience if not in state. Returns the Meta ID.
+
+    Mutates `state["audiences"]` on creation. Idempotent via the name key —
+    rename an audience in the plan and you get a new audience on next deploy.
+    """
+    name = aud["name"]
+    if name in state["audiences"]:
+        aid = state["audiences"][name]
+        print(f"[skip] audience '{name}' ({aid})")
+        return aid
+
+    kind = aud.get("type")
+    subtype = AUDIENCE_SUBTYPES.get(kind)
+    if not subtype:
+        raise SystemExit(
+            f"audience '{name}': unknown type {kind!r} "
+            f"(expected one of {sorted(AUDIENCE_SUBTYPES)})"
+        )
+
+    data = {
+        "name": name,
+        "subtype": subtype,
+        "description": aud.get("description", f"adforge: {name}"),
+    }
+    csv_path = None
+
+    if kind == "custom_list":
+        data["customer_file_source"] = aud.get(
+            "customer_file_source", "USER_PROVIDED_ONLY"
+        )
+        src = aud.get("source_csv")
+        if src:
+            csv_path = Path(src)
+            if not csv_path.is_absolute():
+                csv_path = project_root / csv_path
+            if not csv_path.exists():
+                raise SystemExit(f"audience '{name}': source_csv not found at {csv_path}")
+
+    elif kind == "pixel":
+        pid = aud.get("pixel_id") or default_pixel_id
+        if not pid:
+            if meta.dry_run:
+                pid = "<pixel_id>"
+            else:
+                raise SystemExit(
+                    f"audience '{name}': pixel-based audience needs pixel_id "
+                    f"(in the audience entry or via META_PIXEL_ID)"
+                )
+        retention = int(aud.get("retention_days", 180))
+        rule = aud.get("rule") or {
+            "inclusions": {
+                "operator": "or",
+                "rules": [{
+                    "event_sources": [{"id": str(pid), "type": "pixel"}],
+                    "retention_seconds": retention * 86400,
+                    "filter": {"operator": "and", "filters": [
+                        {"field": "event", "operator": "eq", "value": "PageView"},
+                    ]},
+                }],
+            },
+        }
+        data["rule"] = json.dumps(rule)
+        data["pixel_id"] = str(pid)
+        data["retention_days"] = retention
+
+    elif kind == "engagement":
+        object_id = aud.get("object_id")
+        object_type = aud.get("object_type", "page")
+        if not object_id:
+            raise SystemExit(
+                f"audience '{name}': engagement audience needs object_id "
+                f"(page/IG/post/video ID) and object_type"
+            )
+        retention = int(aud.get("retention_days", 365))
+        rule = aud.get("rule") or {
+            "inclusions": {
+                "operator": "or",
+                "rules": [{
+                    "event_sources": [{"id": str(object_id), "type": object_type}],
+                    "retention_seconds": retention * 86400,
+                }],
+            },
+        }
+        data["rule"] = json.dumps(rule)
+        data["retention_days"] = retention
+
+    elif kind == "lookalike":
+        seed_ref = aud.get("seed")
+        seed_id = None
+        if isinstance(seed_ref, dict):
+            seed_id = seed_ref.get("id")
+        elif isinstance(seed_ref, str):
+            seed_id = state["audiences"].get(seed_ref)
+            if not seed_id:
+                raise SystemExit(
+                    f"audience '{name}': lookalike seed '{seed_ref}' not created yet — "
+                    f"list it earlier in plan.audiences, or reference by id: "
+                    f'{{"seed": {{"id": "12345"}}}}'
+                )
+        if not seed_id:
+            raise SystemExit(
+                f"audience '{name}': lookalike needs a seed "
+                f"(name of another audience in the plan, or {{\"id\": \"...\"}})"
+            )
+        country = aud.get("country")
+        if not country:
+            raise SystemExit(f"audience '{name}': lookalike needs country (ISO-2, e.g. 'AT')")
+        ratio = float(aud.get("ratio", 0.01))
+        data["origin_audience_id"] = str(seed_id)
+        data["lookalike_spec"] = json.dumps({
+            "ratio": ratio,
+            "country": country,
+            "type": aud.get("similarity", "similarity"),
+        })
+
+    res = meta.post(f"{meta.ad_account}/customaudiences", data)
+    aid = res["id"]
+    state["audiences"][name] = aid
+    print(f"[create] audience '{name}' ({aid})")
+
+    if csv_path:
+        if meta.dry_run:
+            print(f"  [dry-run] would upload hashed rows from {csv_path}")
+        else:
+            upload_customer_file(meta, aid, str(csv_path))
+
+    return aid
+
+
+def ensure_audiences(plan, state, meta, project_root, pixel_id):
+    for aud in plan.get("audiences", []):
+        ensure_audience(meta, state, aud, project_root, pixel_id)
+        state_save_side_effect(state, project_root, dry_run=meta.dry_run)
+
+
+def resolve_audience_refs(targeting, adset_name, state):
+    """Turn targeting.custom_audiences / excluded_custom_audiences string refs
+    into [{id, name}] objects. Already-resolved {id: …} entries pass through.
+    """
+    for field in ("custom_audiences", "excluded_custom_audiences"):
+        refs = targeting.get(field)
+        if not refs:
+            continue
+        resolved = []
+        for ref in refs:
+            if isinstance(ref, dict) and ref.get("id"):
+                resolved.append({"id": str(ref["id"]), "name": ref.get("name", "")})
+                continue
+            if isinstance(ref, str):
+                aid = state["audiences"].get(ref)
+                if not aid:
+                    raise SystemExit(
+                        f"adset '{adset_name}': targeting.{field} references '{ref}' — "
+                        f"define it in plan.audiences or paste {{\"id\": \"...\"}} directly"
+                    )
+                resolved.append({"id": str(aid), "name": ref})
+                continue
+            raise SystemExit(
+                f"adset '{adset_name}': targeting.{field} has invalid entry {ref!r}"
+            )
+        targeting[field] = resolved
+
+
 def state_load(path):
     if path.exists():
-        return json.loads(path.read_text())
-    return {"images": {}, "videos": {}, "campaigns": {}, "adsets": {}, "creatives": {}, "ads": {}}
+        data = json.loads(path.read_text())
+        # backfill keys added in later versions
+        data.setdefault("audiences", {})
+        return data
+    return {
+        "images": {}, "videos": {}, "campaigns": {}, "adsets": {},
+        "creatives": {}, "ads": {}, "audiences": {},
+    }
 
 
 def state_save(path, state):
@@ -247,6 +461,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
     """Walk the plan and create everything that doesn't yet exist in state."""
     brand = load_brand(project_root)
     brand_locale = derive_locale(brand.get("domain", ""))
+    ensure_audiences(plan, state, meta, project_root, pixel_id)
     for campaign in plan.get("campaigns", []):
         cname = campaign["name"]
         if cname in state["campaigns"]:
@@ -285,6 +500,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                             f"({brand.get('domain', '<unset>')!r}) is ambiguous — set targeting.geo_locations.countries explicitly"
                         )
                 build_flexible_spec(targeting, aname)
+                resolve_audience_refs(targeting, aname, state)
                 apply_advantage_audience(targeting)
                 adset_data = {
                     "name": aname,

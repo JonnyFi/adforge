@@ -1,4 +1,20 @@
 {
+  "_audiences_comment": "optional: define custom + lookalike audiences once here. deploy.py creates them before any adset so targeting.custom_audiences can reference them by name. supported types: custom_list (hashed csv), pixel (website retargeting), engagement (page/post/IG/video), lookalike (needs seed + country). drop this block entirely if you don't use audiences.",
+  "audiences": [
+    {
+      "name": "adforge-demo-visitors-90d",
+      "type": "pixel",
+      "retention_days": 90,
+      "description": "everyone who visited the site in the last 90 days"
+    },
+    {
+      "name": "adforge-demo-lookalike-AT-1pct",
+      "type": "lookalike",
+      "seed": "adforge-demo-visitors-90d",
+      "country": "AT",
+      "ratio": 0.01
+    }
+  ],
   "campaigns": [
     {
       "name": "adforge-demo-core",
@@ -18,7 +34,8 @@
             "age_min": 28,
             "age_max": 55,
             "advantage_audience": true,
-            "_comment": "write interests/work_positions/industries/behaviors as free-form strings — `resolve.py` turns them into {id, name, audience_size} objects before deploy. example: \"work_positions\": [\"Pflegedienstleitung\"]"
+            "_comment": "write interests/work_positions/industries/behaviors as free-form strings — `resolve.py` turns them into {id, name, audience_size} objects before deploy. custom_audiences / excluded_custom_audiences can reference plan.audiences entries by name (or pasted {id, name} objects).",
+            "excluded_custom_audiences": ["adforge-demo-visitors-90d"]
           },
           "ads": [
             {
