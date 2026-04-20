@@ -52,7 +52,9 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 ## What you get
 
 - **4 user modes** — new-campaign, add-creative, review-performance, setup
-- **Extensible layouts** — three static layouts out of the box (advertorial / stat-card / quote-card), three motion compositions (ops-console / product-mockup / walkthrough). Drop a new file into `engines/static/layouts/` and it auto-registers. Show the agent a reference creative or describe what you want — `layout-synth` skill drafts a new layout module on the spot.
+- **Examples, not templates** — static example layouts (advertorial / stat-card / quote-card) and motion example compositions (ops-console / product-mockup / walkthrough / phone-notifications) sit in `engines/static/examples/` and `engines/motion/src/examples/`. They're reference implementations — show the agent a reference creative or describe what you want and `layout-synth` / `motion-synth` drafts a new module on the spot. Auto-registered as soon as the file lands.
+- **Motion primitives** — `engines/motion/src/primitives/` owns the motion vocabulary (Kicker, Headline, Cursor+ClickRipple, Ticker, TypewriterField, ChromeOverlay). Compositions assemble from primitives instead of re-implementing them, so new compositions stay structurally distinct from existing ones.
+- **Opt-in brand chrome** — by default, every creative is a naked canvas. If you want a wordmark or logo on every ad, declare it once in `brand.json → chrome.wordmark` (text or image, any of 6 corner positions). Two brands running the same layout won't produce ads that look identical unless both opt in to the same chrome.
 - **Bring your own creative** — if you already have finished PNGs/MP4s, skip compose entirely; `deploy.py` takes any asset path.
 - **Meta adapter** — deploy, review, actions (pause / resume / scale / delete), idempotent by name via `.adforge/state.json`
 - **Brand tokens** — one `brand.json` drives both Python and Remotion
@@ -60,13 +62,13 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 
 ## Try this
 
-adforge doesn't ship a fixed catalog of ad types. The three built-in layouts are a starting point — the agent can invent more on the spot. A few things people have done that the stock layouts don't cover:
+adforge doesn't ship a fixed catalog of ad types. The example layouts and compositions are starting points — the agent synthesizes new ones on the spot. A few things people have done that the stock examples don't cover:
 
 - **"Turn my app screenshots into a product walkthrough."** Drop a few PNGs into `assets/`, describe the order, get a motion ad that pans across screens with on-brand captions. No Figma, no After Effects.
 - **"A founder quote with my photo, background removed, and a speech bubble saying X."** Agent removes the background ad-hoc (rembg, Photoshop, whatever), drafts a new `founder-quote` layout, renders 4x5 + 9x16 in one pass.
 - **"Match this competitor ad but in my brand."** Paste a screenshot. The `layout-synth` skill reads the structure, writes a new layout module, and renders it against your `brand.json` — colors, fonts, voice, all yours.
 
-None of these are hardcoded features. They're what falls out of: a registry that auto-discovers new layouts + an agent that can preprocess assets with whatever tooling fits the job. If you can describe it, it's usually a 2-minute synth loop away.
+None of these are hardcoded features. They're what falls out of: a registry that auto-discovers new example modules + motion primitives the agent assembles from + ad-hoc asset prep (rembg, Flux, Photoshop, whatever). If you can describe it, it's usually a 2-minute synth loop away.
 
 ## Why it exists
 
@@ -89,16 +91,19 @@ Everything else — rendering, deploying, reviewing — happens through the agen
 ## Project shape (after init)
 
 ```
-adforge.config.json   engine + adapter registry
-brand.json            colors, fonts, voice
-variants/             one JSON per creative
-engines/static/       PIL composer
-engines/motion/       Remotion project
-adapters/meta/        deploy, review, actions
-outputs/              rendered PNGs and MP4s
-.adforge/state.json   Meta IDs keyed by name
-.claude/skills/       agent skills (hub + modes + backend)
-AGENTS.md             Codex / Cursor entry
+adforge.config.json                   engine + adapter registry
+brand.json                            colors, fonts, voice, optional chrome
+variants/                             one JSON per creative
+engines/static/examples/              reference PIL layouts (advertorial, stat-card, …)
+engines/static/shared.py              composer primitives + apply_chrome
+engines/motion/src/primitives/        Remotion primitives (Kicker, Headline, …)
+engines/motion/src/examples/          reference compositions (ops-console, walkthrough, …)
+adapters/meta/                        deploy, review, actions
+assets/                               brand assets (logo.png, hero images, …)
+outputs/                              rendered PNGs and MP4s
+.adforge/state.json                   Meta IDs keyed by name
+.claude/skills/                       agent skills (hub + modes + synth + backend)
+AGENTS.md                             Codex / Cursor entry
 ```
 
 ## Status
