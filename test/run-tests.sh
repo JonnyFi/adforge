@@ -66,8 +66,13 @@ expected=(
   "variants/example.json"
   "variants/ops-console-example.json"
   "engines/static/compose.py"
+  "engines/static/shared.py"
   "engines/static/flux.sh"
   "engines/static/requirements.txt"
+  "engines/static/layouts/__init__.py"
+  "engines/static/layouts/advertorial.py"
+  "engines/static/layouts/quote_card.py"
+  "engines/static/layouts/stat_card.py"
   "engines/motion/package.json"
   "engines/motion/src/Root.tsx"
   "engines/motion/src/engines/OpsConsole.tsx"
@@ -85,6 +90,7 @@ expected=(
   ".claude/skills/creative-director/SKILL.md"
   ".claude/skills/composer-speccer/SKILL.md"
   ".claude/skills/performance-analyst/SKILL.md"
+  ".claude/skills/layout-synth/SKILL.md"
   ".claude/commands/adforge.md"
 )
 

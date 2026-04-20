@@ -15,11 +15,12 @@ That is the hub. It routes to 4 mode skills depending on what the user wants:
 - `.claude/skills/review-performance/SKILL.md`
 - `.claude/skills/setup/SKILL.md`
 
-Mode skills compose 3 backend skills:
+Mode skills compose 4 backend skills:
 
 - `.claude/skills/creative-director/SKILL.md`
 - `.claude/skills/composer-speccer/SKILL.md`
 - `.claude/skills/performance-analyst/SKILL.md`
+- `.claude/skills/layout-synth/SKILL.md` — synthesize a new static layout from a reference image
 
 ## Project shape
 

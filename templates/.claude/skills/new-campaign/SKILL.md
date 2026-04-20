@@ -5,21 +5,61 @@ description: End-to-end flow for a brand-new campaign — angle, copy, assets, d
 
 # new-campaign
 
-Walk the user from a fresh idea to a PAUSED campaign on Meta. Four stages.
+Walk the user from a fresh idea to a PAUSED campaign on Meta.
 
 ## 0. Keys check (non-negotiable, runs first)
 
 Before you interview, before you draft angles, check `.env`:
 
 - No `.env` at all → route to `setup` skill, don't proceed.
-- No `BFL_API_KEY` → hero generation will fall back to `flat_brand_color`. Warn the user before briefing ("creatives will use flat brand-color backgrounds, not AI-generated heroes — set BFL_API_KEY in .env if you want FLUX heroes"). Let them decide: proceed without, or pause to add the key.
-- No `META_ACCESS_TOKEN` → everything renders locally, but `deploy.py` will only run `--dry-run`. Tell the user they'll need to upload manually or set the token before Stage 4.
+- No `BFL_API_KEY` → hero generation will fall back to `flat_brand_color`. Warn the user before briefing ("creatives will use flat brand-color backgrounds, not AI-generated heroes — set BFL_API_KEY in .env if you want FLUX heroes — or another image source; adforge doesn't care where the PNG comes from"). Let them decide: proceed without, or pause to add the key.
+- No `META_ACCESS_TOKEN` → everything renders locally, but `deploy.py` will only run `--dry-run`. Tell the user they'll need to upload manually or set the token before the deploy stage.
 
 Skipping this check is how you end up generating twelve assets with wrong defaults that have to be thrown away.
 
-## 1. Brief
+## 1. Starting point
 
-Conduct a short interview. Don't ask everything at once — one question at a time:
+Ask one question first — it decides the whole path:
+
+> "What are we working with: (a) start from a fresh brief, (b) match a reference creative you'll show me, or (c) you already have finished assets and just want to deploy?"
+
+Route based on the answer:
+
+### 1a. Fresh brief — standard path
+
+Continue to stage 2 (Brief) → 3 (Angles) → 4 (Assets) → 5 (Plan & deploy). This is the default.
+
+### 1b. Reference creative or open creative request — layout-synth path
+
+Two sub-cases, same destination:
+
+- User shows an image/mockup: read the reference.
+- User just *describes* what they want ("a founder quote with my photo and a speech bubble", "a before/after split", "a meme-y thing with a bold caption"): treat the description as the spec.
+
+Then:
+
+- If one of the existing layouts (`advertorial`, `quote-card`, `stat-card`) clearly matches: tell the user, continue to stage 2 with that layout locked in.
+- Otherwise: load the **`layout-synth`** skill. It drafts a new module under `engines/static/layouts/` and test-renders. Once approved, the new layout name joins the registry — then continue to stage 2 with it.
+
+adforge doesn't pre-enumerate "supported creative concepts". The toolset is: PIL + `shared` primitives for the layout, plus whatever you can install ad-hoc for asset prep (bg-removal, image generation, etc.). If the user's creative ask is feasible with that toolset, say yes and build it. If it genuinely isn't, say so plainly.
+
+### 1c. Bring your own creative — skip compose
+
+User already has PNGs/MP4s ready (from Figma, Canva, a designer, etc.). `deploy.py` takes any `image_path` / `video_path` — no need to go through `compose.py`.
+
+Skip stages 2–4. Go directly to stage 5 (Plan & deploy), but adjust the brief:
+
+- Where do the asset files live? (absolute or project-relative)
+- Which format is each asset? (`4x5`, `9x16` — drives placement derivation)
+- Primary text, headline, description per ad
+- Landing URL per ad
+- Daily budget, audience, optimization goal (same questions as standard)
+
+Draft `campaign-plan.json` directly with the user's files referenced, then proceed to deploy.
+
+## 2. Brief
+
+Conduct a short interview. One question at a time:
 
 - What's the campaign about? (one sentence)
 - Who is the target audience? (be specific — job, situation, locale)
@@ -28,11 +68,11 @@ Conduct a short interview. Don't ask everything at once — one question at a ti
 
 If the user is vague, offer 2–3 options to pick from rather than asking open-ended.
 
-## 2. Angles
+## 3. Angles
 
 Load the `creative-director` skill. It proposes 3 angles with hooks and copy drafts. User picks one (or asks to iterate). Each angle becomes one variant.
 
-## 3. Assets
+## 4. Assets
 
 For each angle variant, load the `composer-speccer` skill to translate the copy brief into a concrete variant JSON under `variants/`.
 
@@ -49,7 +89,7 @@ Render commands:
 
 Show the user the rendered files and let them approve/reject before deploy.
 
-## 4. Plan & deploy
+## 5. Plan & deploy
 
 Draft a `campaign-plan.json` (see `adapters/meta/example-plan.json` for shape). Show it as a diff. On approval:
 
