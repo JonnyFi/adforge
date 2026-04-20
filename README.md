@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/social-preview.png" alt="adforge — brief to live ad" width="640">
+</p>
+
 # adforge
 
 > Brief-to-live-ad pipeline for Meta. Runs inside your agent (Claude Code, Codex, Cursor).

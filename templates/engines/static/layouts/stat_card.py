@@ -47,7 +47,11 @@ def render(canvas, variant, brand, size, band_h):
     number = variant.get("number", variant.get("headline", "42"))
     nbbox = draw.textbbox((0, 0), number, font=number_font)
     draw.text((pad_x, cursor_y), number, font=number_font, fill=brand.accent)
-    cursor_y += (nbbox[3] - nbbox[1]) + 40
+    # bbox[3] is the ink's bottom in anchor-space, so the visual bottom of
+    # the number sits at cursor_y + nbbox[3]. Using the bbox height
+    # (nbbox[3] - nbbox[1]) drops nbbox[1] — the top gap serif fonts
+    # reserve above ink — and lets the label overlap into the number.
+    cursor_y += nbbox[3] + 40
 
     label = variant.get("label", variant.get("body", ""))
     for line in wrap_text(draw, label, label_font, content_w):
