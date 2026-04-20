@@ -183,6 +183,33 @@ fi
 deactivate
 
 # ---------------------------------------------------------------------------
+# Test 2b — dry-run must not pollute state.json
+# ---------------------------------------------------------------------------
+head "Test 2b: deploy --dry-run state guard"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+pip install --quiet -r "$PROJECT/adapters/meta/requirements.txt" > /dev/null 2>&1
+
+STATE_FILE="$PROJECT/.adforge/state.json"
+rm -f "$STATE_FILE"
+
+if (cd "$PROJECT" && python3 adapters/meta/deploy.py --dry-run adapters/meta/example-plan.json > "$WORK/dry-run.log" 2>&1); then
+  pass "dry-run exited 0"
+else
+  fail "dry-run exit code"
+  tail -30 "$WORK/dry-run.log"
+fi
+
+if [ -f "$STATE_FILE" ]; then
+  fail "dry-run wrote state.json — should be a no-op"
+else
+  pass "dry-run left state.json untouched"
+fi
+
+deactivate
+
+# ---------------------------------------------------------------------------
 # Test 3 — motion render (ops-console example)
 # ---------------------------------------------------------------------------
 if [ $SKIP_MOTION -eq 1 ]; then

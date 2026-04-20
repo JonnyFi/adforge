@@ -87,6 +87,9 @@ class Meta:
 
     # --- upload helpers ---
     def upload_image(self, image_path):
+        if self.dry_run:
+            print(f"  [dry-run] upload image {image_path}")
+            return f"dry_img_{hashlib.md5(str(image_path).encode()).hexdigest()[:8]}"
         with open(image_path, "rb") as f:
             res = self.post(f"{self.ad_account}/adimages", files={"file": f})
         # response format: {"images": {"basename": {"hash": "...", ...}}}
@@ -97,6 +100,9 @@ class Meta:
         return info["hash"]
 
     def upload_video(self, video_path):
+        if self.dry_run:
+            print(f"  [dry-run] upload video {video_path}")
+            return f"dry_vid_{hashlib.md5(str(video_path).encode()).hexdigest()[:8]}"
         with open(video_path, "rb") as f:
             res = self.post(f"{self.ad_account}/advideos", data={"name": Path(video_path).name}, files={"source": f})
         return res["id"]
@@ -120,7 +126,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
             })
             cid = res["id"]
             state["campaigns"][cname] = cid
-            state_save_side_effect(state, project_root)
+            state_save_side_effect(state, project_root, dry_run=meta.dry_run)
 
         for adset in campaign.get("adsets", []):
             aname = adset["name"]
@@ -151,7 +157,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                 res = meta.post(f"{meta.ad_account}/adsets", adset_data)
                 aid = res["id"]
                 state["adsets"][aname] = aid
-                state_save_side_effect(state, project_root)
+                state_save_side_effect(state, project_root, dry_run=meta.dry_run)
 
             for ad in adset.get("ads", []):
                 ad_name = ad["name"]
@@ -172,7 +178,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                         print(f"    [upload] image {key}")
                         h = meta.upload_image(str(image_path))
                         state["images"][key] = h
-                        state_save_side_effect(state, project_root)
+                        state_save_side_effect(state, project_root, dry_run=meta.dry_run)
                     media_ref["image_hash"] = h
                 elif ad.get("creative_type") == "video":
                     video_path = Path(ad["video_path"])
@@ -185,7 +191,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                         print(f"    [upload] video {key}")
                         vid = meta.upload_video(str(video_path))
                         state["videos"][key] = vid
-                        state_save_side_effect(state, project_root)
+                        state_save_side_effect(state, project_root, dry_run=meta.dry_run)
                     media_ref["video_id"] = vid
                     if ad.get("thumbnail_path"):
                         tp = Path(ad["thumbnail_path"])
@@ -238,10 +244,12 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                 })
                 state["ads"][ad_name] = ad_res["id"]
                 print(f"    [create] ad '{ad_name}' -> {ad_res['id']}")
-                state_save_side_effect(state, project_root)
+                state_save_side_effect(state, project_root, dry_run=meta.dry_run)
 
 
-def state_save_side_effect(state, project_root):
+def state_save_side_effect(state, project_root, dry_run=False):
+    if dry_run:
+        return
     state_save(project_root / ".adforge" / "state.json", state)
 
 
@@ -271,7 +279,8 @@ def main():
 
     meta = Meta(token, ad_account, dry_run=args.dry_run)
     deploy(plan, state, meta, project_root, page_id, pixel_id)
-    state_save(state_path, state)
+    if not args.dry_run:
+        state_save(state_path, state)
     print("\ndone.")
 
 
