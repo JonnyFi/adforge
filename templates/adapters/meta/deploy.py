@@ -46,6 +46,60 @@ def find_project_root(start):
     raise SystemExit("no adforge.config.json found")
 
 
+# TLD → {country, language}. Unambiguous TLDs only — ambiguous ones (.com, .ch, …)
+# return None from derive_locale and force the caller to specify.
+TLD_LOCALE = {
+    "at": {"country": "AT", "language": "de"},
+    "de": {"country": "DE", "language": "de"},
+    "fr": {"country": "FR", "language": "fr"},
+    "es": {"country": "ES", "language": "es"},
+    "it": {"country": "IT", "language": "it"},
+    "nl": {"country": "NL", "language": "nl"},
+    "pl": {"country": "PL", "language": "pl"},
+    "pt": {"country": "PT", "language": "pt"},
+    "se": {"country": "SE", "language": "sv"},
+    "no": {"country": "NO", "language": "no"},
+    "dk": {"country": "DK", "language": "da"},
+    "fi": {"country": "FI", "language": "fi"},
+    "ie": {"country": "IE", "language": "en"},
+    "us": {"country": "US", "language": "en"},
+    "co.uk": {"country": "GB", "language": "en"},
+    "uk": {"country": "GB", "language": "en"},
+}
+
+
+def derive_locale(domain):
+    """Return {"country": "AT", "language": "de"} for unambiguous TLDs, else None.
+
+    Accepts bare domains, URLs, or www-prefixed strings. Strips path. Recognises
+    .co.uk as a two-label TLD. Returns None for generic TLDs (.com, .io, .co, …)
+    and multi-lingual country TLDs (.ch, .be) so callers must specify explicitly.
+    """
+    if not domain:
+        return None
+    d = domain.strip().lower()
+    for prefix in ("https://", "http://", "www."):
+        if d.startswith(prefix):
+            d = d[len(prefix):]
+    d = d.split("/")[0].split("?")[0]
+    if d.endswith(".co.uk"):
+        return TLD_LOCALE["co.uk"]
+    if "." not in d:
+        return None
+    tld = d.rsplit(".", 1)[-1]
+    return TLD_LOCALE.get(tld)
+
+
+def load_brand(project_root):
+    path = project_root / "brand.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
 def derive_placements(ads):
     """Return Meta placement fields based on asset types/formats in an adset.
 
@@ -145,6 +199,8 @@ class Meta:
 
 def deploy(plan, state, meta, project_root, page_id, pixel_id):
     """Walk the plan and create everything that doesn't yet exist in state."""
+    brand = load_brand(project_root)
+    brand_locale = derive_locale(brand.get("domain", ""))
     for campaign in plan.get("campaigns", []):
         cname = campaign["name"]
         if cname in state["campaigns"]:
@@ -173,6 +229,15 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                 targeting = dict(adset["targeting"])
                 if "publisher_platforms" not in targeting:
                     targeting.update(derive_placements(adset.get("ads", [])))
+                if "geo_locations" not in targeting:
+                    if brand_locale:
+                        targeting["geo_locations"] = {"countries": [brand_locale["country"]]}
+                        print(f"    [locale] defaulted geo_locations.countries to ['{brand_locale['country']}'] from brand.domain")
+                    else:
+                        raise SystemExit(
+                            f"error: adset '{aname}' has no targeting.geo_locations and brand.json domain "
+                            f"({brand.get('domain', '<unset>')!r}) is ambiguous — set targeting.geo_locations.countries explicitly"
+                        )
                 adset_data = {
                     "name": aname,
                     "campaign_id": cid,

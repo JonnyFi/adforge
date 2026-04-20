@@ -60,9 +60,31 @@ Extract brand tokens from the user's domain. Use Playwright first (handles JS-re
 3. `curl` + HTML scrape only if Playwright isn't installed — warn the user this will be wrong on most modern sites.
 
 Then open `brand.json` and walk the user through customising:
-- name, wordmark, domain, `locale` (AT for .at domains, DE for .de, ask if .com or ambiguous)
-- colors (ink, muted, cream, accent) — hex only
-- voice principles (1–3 short rules)
+- **name, wordmark, domain**. The domain is load-bearing — `adapters/meta/deploy.py` reads it to auto-default `geo_locations.countries` for every adset. See the TLD table below.
+- **colors** (ink, muted, cream, accent) — hex only.
+- **voice principles** (1–3 short rules) and **voice.locale** (copy language — `de`, `en`, `fr`, …). Derive from the same TLD mapping.
+
+**TLD → locale mapping** (same table `deploy.py::derive_locale` uses — apply deterministically, don't ask):
+
+| TLD | country | voice.locale |
+|-----|---------|--------------|
+| `.at` | AT | de |
+| `.de` | DE | de |
+| `.fr` | FR | fr |
+| `.es` | ES | es |
+| `.it` | IT | it |
+| `.nl` | NL | nl |
+| `.co.uk` / `.uk` | GB | en |
+| `.ie` | IE | en |
+| `.us` | US | en |
+| `.pl` | PL | pl |
+| `.pt` | PT | pt |
+| `.se` | SE | sv |
+| `.no` | NO | no |
+| `.dk` | DK | da |
+| `.fi` | FI | fi |
+
+**Ambiguous TLDs** (`.com`, `.io`, `.co`, `.app`, `.net`, `.ai`, `.ch`, `.be`, …) — *always* ask the user where they sell and what language they write in. `deploy.py` will refuse to auto-pick a country for these and require `targeting.geo_locations.countries` in the plan.
 
 Show the diff before writing.
 

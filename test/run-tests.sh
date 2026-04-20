@@ -301,6 +301,104 @@ fi
 deactivate
 
 # ---------------------------------------------------------------------------
+# Test 2d — TLD-based locale inference
+# ---------------------------------------------------------------------------
+head "Test 2d: TLD-based locale inference"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+if python3 - <<PY > "$WORK/locale.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/adapters/meta")
+from deploy import derive_locale
+
+cases = {
+    "example.at": ("AT", "de"),
+    "https://example.at/path": ("AT", "de"),
+    "www.example.at": ("AT", "de"),
+    "example.de": ("DE", "de"),
+    "example.fr": ("FR", "fr"),
+    "example.co.uk": ("GB", "en"),
+    "example.us": ("US", "en"),
+}
+for domain, want in cases.items():
+    got = derive_locale(domain)
+    assert got == {"country": want[0], "language": want[1]}, (domain, got, want)
+
+ambiguous = ["example.com", "example.io", "example.co", "example.ch", "example.be", "", "noextension"]
+for domain in ambiguous:
+    assert derive_locale(domain) is None, f"{domain} should be ambiguous, got {derive_locale(domain)}"
+
+print("ok")
+PY
+then
+  pass "derive_locale matrix (unambiguous + ambiguous)"
+else
+  fail "derive_locale unit test"
+  cat "$WORK/locale.log"
+fi
+
+# Integration: plan with no geo_locations + brand.json with .at domain should
+# auto-default countries to ["AT"] during dry-run.
+PLAN_NO_GEO="$PROJECT/plan-no-geo.json"
+python3 - <<PY
+import json, pathlib
+p = json.loads(pathlib.Path("$PROJECT/adapters/meta/example-plan.json").read_text())
+for c in p["campaigns"]:
+    for a in c["adsets"]:
+        a["targeting"].pop("geo_locations", None)
+pathlib.Path("$PLAN_NO_GEO").write_text(json.dumps(p, indent=2))
+PY
+
+BRAND_BAK="$WORK/brand.json.bak"
+cp "$PROJECT/brand.json" "$BRAND_BAK"
+python3 - <<PY
+import json, pathlib
+path = pathlib.Path("$PROJECT/brand.json")
+b = json.loads(path.read_text())
+b["domain"] = "example.at"
+path.write_text(json.dumps(b, indent=2))
+PY
+
+if (cd "$PROJECT" && python3 adapters/meta/deploy.py --dry-run "$PLAN_NO_GEO" > "$WORK/locale-dry.log" 2>&1); then
+  if grep -q "defaulted geo_locations.countries to \['AT'\]" "$WORK/locale-dry.log"; then
+    pass "deploy auto-defaulted AT countries from brand.domain"
+  else
+    fail "deploy didn't log locale default"
+    tail -20 "$WORK/locale-dry.log"
+  fi
+else
+  fail "dry-run with missing geo failed unexpectedly"
+  tail -30 "$WORK/locale-dry.log"
+fi
+
+# Ambiguous domain (.com) must refuse to auto-pick and error clearly.
+python3 - <<PY
+import json, pathlib
+path = pathlib.Path("$PROJECT/brand.json")
+b = json.loads(path.read_text())
+b["domain"] = "example.com"
+path.write_text(json.dumps(b, indent=2))
+PY
+
+if (cd "$PROJECT" && python3 adapters/meta/deploy.py --dry-run "$PLAN_NO_GEO" > "$WORK/locale-dry-ambig.log" 2>&1); then
+  fail "deploy should have errored on ambiguous domain + missing geo_locations"
+  tail -20 "$WORK/locale-dry-ambig.log"
+else
+  if grep -qi "ambiguous" "$WORK/locale-dry-ambig.log"; then
+    pass "deploy refused ambiguous domain with clear error"
+  else
+    fail "deploy errored but message didn't mention ambiguous"
+    tail -20 "$WORK/locale-dry-ambig.log"
+  fi
+fi
+
+cp "$BRAND_BAK" "$PROJECT/brand.json"
+
+deactivate
+
+# ---------------------------------------------------------------------------
 # Test 3 — motion render (ops-console example)
 # ---------------------------------------------------------------------------
 if [ $SKIP_MOTION -eq 1 ]; then
