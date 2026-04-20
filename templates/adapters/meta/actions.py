@@ -14,7 +14,7 @@ from pathlib import Path
 
 import requests
 
-API = "https://graph.facebook.com/v21.0"
+API = "https://graph.facebook.com/v22.0"
 
 
 def load_env(project_root):
