@@ -193,10 +193,19 @@ def main():
 
     brand = load_brand(project_root)
     locale_info = derive_locale(brand.get("domain", ""))
-    # Meta's `locale` search param is `language_TERRITORY`, e.g. "de_AT".
+    # Meta's `locale` param only accepts a fixed set of `language_TERRITORY`
+    # values (e.g. de_DE, en_US, fr_FR). de_AT / de_CH / nl_BE are rejected.
+    # We map derived locales to the dominant-territory variant Meta supports —
+    # this controls the language of returned names, NOT which country the ads
+    # target (that's `geo_locations`, set independently from the TLD).
+    LANG_TO_META_LOCALE = {
+        "de": "de_DE", "fr": "fr_FR", "nl": "nl_NL", "it": "it_IT",
+        "es": "es_ES", "pt": "pt_BR", "en": "en_US", "pl": "pl_PL",
+        "sv": "sv_SE", "da": "da_DK", "fi": "fi_FI", "nb": "nb_NO",
+    }
     search_locale = None
     if locale_info:
-        search_locale = f"{locale_info['language']}_{locale_info['country']}"
+        search_locale = LANG_TO_META_LOCALE.get(locale_info["language"])
 
     plan = json.loads(plan_path.read_text())
     session = requests.Session()

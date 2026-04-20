@@ -522,6 +522,43 @@ else
   fi
 fi
 
+# 2e.4 — locale mapping: derived de_AT / de_CH / fr_BE must map to the
+# dominant-territory locale Meta actually accepts (de_DE, fr_FR).
+if python3 - <<PY > "$WORK/locale-map.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/adapters/meta")
+from deploy import derive_locale
+
+# these are derived from TLD — all valid BCP-47 but NOT all accepted by Meta search
+cases = {
+    "hanicare.at":  "de",  # → de_DE
+    "example.ch":   None,  # ambiguous TLD, derive_locale returns None
+    "example.de":   "de",
+    "example.fr":   "fr",
+    "example.nl":   "nl",
+    "example.it":   "it",
+}
+LANG_TO_META = {
+    "de": "de_DE", "fr": "fr_FR", "nl": "nl_NL", "it": "it_IT",
+    "es": "es_ES", "pt": "pt_BR", "en": "en_US",
+}
+for domain, expected_lang in cases.items():
+    info = derive_locale(domain)
+    if expected_lang is None:
+        assert info is None, (domain, info)
+    else:
+        assert info and info["language"] == expected_lang, (domain, info)
+        meta_locale = LANG_TO_META.get(info["language"])
+        assert meta_locale is not None, (domain, info)
+print("ok")
+PY
+then
+  pass "locale map covers TLDs Meta's search accepts"
+else
+  fail "locale map"
+  cat "$WORK/locale-map.log"
+fi
+
 deactivate
 
 # ---------------------------------------------------------------------------
