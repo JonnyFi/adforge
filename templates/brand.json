@@ -28,7 +28,8 @@
       "no superlatives unless quantified"
     ],
     "audience": "describe your audience here",
-    "locale": "en"
+    "locale": "en",
+    "_comment": "voice.locale = copy language. Derive from the domain TLD during setup (.at/.de → de, .fr → fr, .com → ask). deploy.py auto-defaults targeting.geo_locations.countries from the same domain."
   },
   "radiant_gradient": {
     "top_color": [252, 240, 217],
