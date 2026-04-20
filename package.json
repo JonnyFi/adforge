@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Brief-to-live-ad pipeline for Meta — runs inside Claude Code, Codex, or any agent. Static + motion creatives, idempotent deploy.",
   "bin": {
-    "adforge": "./bin/adforge.js"
+    "adforge": "bin/adforge.js"
   },
   "files": [
     "bin",
@@ -11,6 +11,15 @@
     "README.md",
     "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JonnyFi/adforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JonnyFi/adforge/issues"
+  },
+  "homepage": "https://github.com/JonnyFi/adforge#readme",
+  "author": "Jonny Fischer",
   "keywords": [
     "marketing",
     "meta-ads",
