@@ -88,11 +88,69 @@ Then open `brand.json` and walk the user through customising:
 
 Show the diff before writing.
 
-## 4. Fonts
+## 4. Chrome — brand mark on every creative (opt-in)
+
+Ask the user (in their `voice.locale` — translate the prompt if locale is non-English):
+
+> Do you want a brand mark on every ad, or should each ad stand on its own?
+>
+> - **a)** No recurring mark. Each ad is structurally self-contained. Recommended when testing many angles — less "same adforge look" across ads.
+> - **b)** Text wordmark — your `wordmark` or `name` written in a corner.
+> - **c)** Logo image — you drop in a PNG, adforge places it on every ad.
+> - **d)** Not sure, decide for me → defaults to (b): text wordmark, bottom-left, serif-italic, accent color, 64px.
+
+Don't configure chrome unless the user picks (b), (c), or (d). No chrome block = naked canvas, which is the right default for most first-time users.
+
+### If (b) — text wordmark
+
+Pick sensible defaults, only ask the user to override if they want. Write this to `brand.json`:
+
+```json
+"chrome": {
+  "wordmark": {
+    "show": true,
+    "position": "bottom-left",
+    "style": "serif-italic",
+    "color": "accent",
+    "fontSize": 64,
+    "padding": 180
+  }
+}
+```
+
+Offer variants only if the user pushes back:
+- `position`: `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`
+- `style`: `serif-italic` (Instrument Serif italic), `sans-medium` (Inter medium), `mono-uppercase` (JetBrains Mono, upper-cased + tracked)
+- `color`: `accent`, `ink`, `muted`, or any hex
+
+### If (c) — logo image
+
+1. Ask the user to drop a logo PNG into `./assets/` at project root (create the dir if missing). Transparent background works best.
+2. Write this, substituting the filename:
+
+```json
+"chrome": {
+  "wordmark": {
+    "show": true,
+    "position": "bottom-left",
+    "path": "assets/logo.png",
+    "height": 140,
+    "padding": 120
+  }
+}
+```
+
+The same path resolves in both engines — `render.sh` auto-syncs `assets/` into `engines/motion/public/assets/` on each render.
+
+### If (d) — let adforge decide
+
+Just write option (b)'s text-wordmark config. Tell the user: "If you ship a batch and the text wordmark feels off, come back and switch to a logo image or turn it off — it's a one-line edit in `brand.json`."
+
+## 5. Fonts
 
 Tell the user: drop `.ttf` files into `./fonts/` matching the names in `brand.json`, or change the names in `brand.json` to match files they already have. Defaults are Google Fonts (Instrument Serif, JetBrains Mono, Inter) — link them to https://fonts.google.com.
 
-## 5. Dry-run
+## 6. Dry-run
 
 Compose a static creative from `variants/example.json` and a motion from `variants/ops-console-example.json`. Show the user the output files. If that works, setup is done.
 
