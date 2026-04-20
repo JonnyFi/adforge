@@ -54,6 +54,16 @@ The agent reads `.claude/skills/adforge/SKILL.md` (or `AGENTS.md` for Codex) and
 - **Brand tokens** — one `brand.json` drives both Python and Remotion
 - **Agent-portable** — plain markdown skills. No runtime you have to trust.
 
+## Try this
+
+adforge doesn't ship a fixed catalog of ad types. The three built-in layouts are a starting point — the agent can invent more on the spot. A few things people have done that the stock layouts don't cover:
+
+- **"Turn my app screenshots into a product walkthrough."** Drop a few PNGs into `assets/`, describe the order, get a motion ad that pans across screens with on-brand captions. No Figma, no After Effects.
+- **"A founder quote with my photo, background removed, and a speech bubble saying X."** Agent removes the background ad-hoc (rembg, Photoshop, whatever), drafts a new `founder-quote` layout, renders 4x5 + 9x16 in one pass.
+- **"Match this competitor ad but in my brand."** Paste a screenshot. The `layout-synth` skill reads the structure, writes a new layout module, and renders it against your `brand.json` — colors, fonts, voice, all yours.
+
+None of these are hardcoded features. They're what falls out of: a registry that auto-discovers new layouts + an agent that can preprocess assets with whatever tooling fits the job. If you can describe it, it's usually a 2-minute synth loop away.
+
 ## Why it exists
 
 Running ads manually is tedious: assembling creatives in Canva or Figma, writing copy from scratch, keeping every variant on brand, uploading to Ads Manager one by one, and then circling back every few days to read the same insights screen. Most of that is mechanical.
