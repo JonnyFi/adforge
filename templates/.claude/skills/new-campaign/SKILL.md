@@ -91,9 +91,47 @@ Show the user the rendered files and let them approve/reject before deploy.
 
 ## 5. Plan & deploy
 
-Draft a `campaign-plan.json` (see `adapters/meta/example-plan.json` for shape). Show it as a diff. On approval:
+Draft a `campaign-plan.json` (see `adapters/meta/example-plan.json` for shape). Show it as a diff.
 
-- `python3 adapters/meta/deploy.py --dry-run campaign-plan.json` — preview first
+### Targeting — free-form, resolved before deploy
+
+Write targeting in plain language — `adapters/meta/resolve.py` turns strings into Meta IDs in a second pass:
+
+```json
+"targeting": {
+  "geo_locations": {"countries": ["AT"]},
+  "interests":      ["mobile Pflege", "Hauskrankenpflege"],
+  "work_positions": ["Pflegedienstleitung"],
+  "industries":     ["Healthcare Services"],
+  "age_min": 28,
+  "age_max": 58,
+  "advantage_audience": true
+}
+```
+
+Five resolvable fields: `interests`, `work_positions`, `work_employers`, `industries`, `behaviors`. Write whichever apply — B2B campaigns usually lean on `work_positions` + `industries`, B2C on `interests` + `behaviors`.
+
+**Advantage+ vs. hard targeting.** Ask the user once:
+
+> "Meta has two modes. **Advantage+ Audience** (default) — your targeting is treated as *hints*, Meta's AI expands to similar users that convert. **Hard targeting** — Meta delivers only to people who match. Which do you want?"
+
+Set `advantage_audience: true` for Advantage+, `false` for hard. If skipped, Meta defaults to Advantage+ on v23+ anyway; we set it explicitly so plan behavior is version-independent.
+
+### Resolve, review, deploy
+
+```bash
+# turn strings into {id, name, audience_size} objects in place
+python3 adapters/meta/resolve.py campaign-plan.json
+
+# or non-interactive: pick dominant matches automatically, fail on anything ambiguous
+python3 adapters/meta/resolve.py --auto campaign-plan.json
+```
+
+After resolve, show the plan diff to the user — this is the moment to sanity-check matches (audience sizes, category paths) before spending money. Then:
+
+- `python3 adapters/meta/deploy.py --dry-run campaign-plan.json` — preview API calls
 - `python3 adapters/meta/deploy.py campaign-plan.json` — live, everything PAUSED
+
+Deploy refuses to run if it sees raw strings (means resolve wasn't run). Manual escape: write an `{"id": "12345", "name": "..."}` object directly in the plan — resolve leaves those alone.
 
 Finish with: "All deployed and paused. To go live, run `python3 adapters/meta/actions.py resume --adset <name>`."

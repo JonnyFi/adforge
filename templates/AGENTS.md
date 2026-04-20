@@ -29,7 +29,7 @@ Mode skills compose 4 backend skills:
 - `variants/` — user-authored ad specs (JSON)
 - `engines/static/compose.py` — PIL renderer (advertorial, stat-card, quote-card)
 - `engines/motion/` — Remotion project (ops-console, product-mockup, walkthrough)
-- `adapters/meta/` — deploy.py, review.py, actions.py (Graph API v21.0)
+- `adapters/meta/` — deploy.py, resolve.py, review.py, actions.py (Graph API v22.0). `resolve.py` turns free-form targeting strings (interests, work_positions, industries, behaviors, work_employers) into Meta IDs in place on the plan.
 - `.adforge/state.json` — idempotent deploy state (Meta IDs keyed by name)
 - `outputs/` — rendered assets
 

@@ -16,7 +16,9 @@
           "targeting": {
             "geo_locations": {"countries": ["AT"]},
             "age_min": 28,
-            "age_max": 55
+            "age_max": 55,
+            "advantage_audience": true,
+            "_comment": "write interests/work_positions/industries/behaviors as free-form strings — `resolve.py` turns them into {id, name, audience_size} objects before deploy. example: \"work_positions\": [\"Pflegedienstleitung\"]"
           },
           "ads": [
             {

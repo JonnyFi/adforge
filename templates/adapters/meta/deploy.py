@@ -23,7 +23,7 @@ from pathlib import Path
 
 import requests
 
-API = "https://graph.facebook.com/v21.0"
+API = "https://graph.facebook.com/v22.0"
 
 
 def load_env(project_root):
@@ -135,6 +135,52 @@ def derive_placements(ads):
     return out
 
 
+# Fields that go into Meta's flexible_spec block. Plan carries them at the top
+# level of `targeting` (after resolve.py turns strings into {id, name} objects);
+# deploy collapses them into one AND-block inside flexible_spec.
+FLEXIBLE_FIELDS = ("interests", "work_positions", "work_employers", "industries", "behaviors")
+
+
+def build_flexible_spec(targeting, adset_name):
+    """Collapse resolved targeting fields into a single flexible_spec AND-block.
+
+    Raises if any entry is still a raw string (means resolve.py wasn't run).
+    Leaves targeting untouched if none of the flexible fields are present.
+    """
+    block = {}
+    for field in FLEXIBLE_FIELDS:
+        entries = targeting.pop(field, None)
+        if not entries:
+            continue
+        clean = []
+        for e in entries:
+            if isinstance(e, str):
+                raise SystemExit(
+                    f"error: adset '{adset_name}' has raw string {e!r} in targeting.{field} — "
+                    f"run `python3 adapters/meta/resolve.py <plan>` first"
+                )
+            if isinstance(e, dict) and e.get("id"):
+                clean.append({"id": str(e["id"]), "name": e.get("name", "")})
+        if clean:
+            block[field] = clean
+    if not block:
+        return
+    existing = targeting.get("flexible_spec", [])
+    targeting["flexible_spec"] = existing + [block]
+
+
+def apply_advantage_audience(targeting):
+    """Translate plan-level `advantage_audience: bool` into Meta's nested
+    `targeting_automation.advantage_audience` (0/1) field.
+    """
+    if "advantage_audience" not in targeting:
+        return
+    flag = 1 if targeting.pop("advantage_audience") else 0
+    ta = dict(targeting.get("targeting_automation", {}))
+    ta["advantage_audience"] = flag
+    targeting["targeting_automation"] = ta
+
+
 def state_load(path):
     if path.exists():
         return json.loads(path.read_text())
@@ -238,6 +284,8 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                             f"error: adset '{aname}' has no targeting.geo_locations and brand.json domain "
                             f"({brand.get('domain', '<unset>')!r}) is ambiguous — set targeting.geo_locations.countries explicitly"
                         )
+                build_flexible_spec(targeting, aname)
+                apply_advantage_audience(targeting)
                 adset_data = {
                     "name": aname,
                     "campaign_id": cid,

@@ -399,6 +399,132 @@ cp "$BRAND_BAK" "$PROJECT/brand.json"
 deactivate
 
 # ---------------------------------------------------------------------------
+# Test 2e — targeting resolve + flexible_spec + advantage_audience
+# ---------------------------------------------------------------------------
+head "Test 2e: targeting resolve + flexible_spec"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+# 2e.1 — walk_targeting turns strings into resolved objects; already-resolved
+# entries are skipped (plan file IS the cache, re-run is idempotent).
+if python3 - <<PY > "$WORK/resolve-unit.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/adapters/meta")
+from resolve import walk_targeting, FIELD_MAP
+
+plan = {"campaigns": [{"adsets": [{"targeting": {
+    "interests": ["mobile Pflege", {"id": "999", "name": "already-resolved"}],
+    "work_positions": ["Pflegedienstleitung"],
+    "industries": ["Healthcare"],
+}}]}]}
+
+calls = []
+def stub(type_, q, extra):
+    calls.append((type_, q, extra))
+    return {"id": f"id_{q}", "name": q, "audience_size": 100000}
+
+walk_targeting(plan, stub)
+
+t = plan["campaigns"][0]["adsets"][0]["targeting"]
+assert t["interests"] == [
+    {"id": "id_mobile Pflege", "name": "mobile Pflege", "audience_size": 100000},
+    {"id": "999", "name": "already-resolved"},
+], t["interests"]
+assert t["work_positions"][0]["id"] == "id_Pflegedienstleitung"
+assert t["industries"][0]["id"] == "id_Healthcare"
+
+# re-run must be a no-op — no further API calls
+before = len(calls)
+walk_targeting(plan, stub)
+assert len(calls) == before, f"re-run called resolver {len(calls)-before} extra times"
+
+# check the right endpoint types got called
+types_seen = {c[0] for c in calls}
+assert types_seen == {"adinterest", "adworkposition", "adTargetingCategory"}, types_seen
+print("ok")
+PY
+then
+  pass "walk_targeting resolves + is idempotent on re-run"
+else
+  fail "walk_targeting unit test"
+  cat "$WORK/resolve-unit.log"
+fi
+
+# 2e.2 — build_flexible_spec collapses resolved fields into one AND-block
+if python3 - <<PY > "$WORK/flex-unit.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/adapters/meta")
+from deploy import build_flexible_spec, apply_advantage_audience
+
+# resolved targeting → flexible_spec block
+t = {
+    "geo_locations": {"countries": ["AT"]},
+    "interests": [{"id": "1", "name": "Pflege"}],
+    "work_positions": [{"id": "2", "name": "PDL"}],
+    "industries": [{"id": "3", "name": "Healthcare"}],
+}
+build_flexible_spec(t, "test-adset")
+assert "interests" not in t, "should have popped interests off top-level"
+assert t["flexible_spec"] == [{
+    "interests": [{"id": "1", "name": "Pflege"}],
+    "work_positions": [{"id": "2", "name": "PDL"}],
+    "industries": [{"id": "3", "name": "Healthcare"}],
+}], t["flexible_spec"]
+
+# raw strings → SystemExit with actionable message
+try:
+    build_flexible_spec({"interests": ["mobile Pflege"]}, "x")
+    assert False, "should have raised"
+except SystemExit as e:
+    assert "resolve.py" in str(e), e
+
+# advantage_audience true → nested targeting_automation.advantage_audience = 1
+t = {"advantage_audience": True}
+apply_advantage_audience(t)
+assert t == {"targeting_automation": {"advantage_audience": 1}}, t
+
+t = {"advantage_audience": False}
+apply_advantage_audience(t)
+assert t == {"targeting_automation": {"advantage_audience": 0}}, t
+
+# flag omitted → no targeting_automation added
+t = {"geo_locations": {"countries": ["AT"]}}
+apply_advantage_audience(t)
+assert "targeting_automation" not in t, t
+print("ok")
+PY
+then
+  pass "build_flexible_spec + apply_advantage_audience"
+else
+  fail "flexible_spec unit test"
+  cat "$WORK/flex-unit.log"
+fi
+
+# 2e.3 — deploy dry-run must fail on raw strings (means resolve wasn't run)
+PLAN_RAW="$PROJECT/plan-raw-strings.json"
+python3 - <<PY
+import json, pathlib
+p = json.loads(pathlib.Path("$PROJECT/adapters/meta/example-plan.json").read_text())
+p["campaigns"][0]["adsets"][0]["targeting"]["interests"] = ["mobile Pflege"]
+pathlib.Path("$PLAN_RAW").write_text(json.dumps(p, indent=2))
+PY
+
+if (cd "$PROJECT" && python3 adapters/meta/deploy.py --dry-run "$PLAN_RAW" > "$WORK/deploy-raw.log" 2>&1); then
+  fail "deploy should have errored on raw targeting strings"
+  tail -20 "$WORK/deploy-raw.log"
+else
+  if grep -q "resolve.py" "$WORK/deploy-raw.log"; then
+    pass "deploy refused raw strings and pointed at resolve.py"
+  else
+    fail "deploy errored but message didn't mention resolve.py"
+    tail -20 "$WORK/deploy-raw.log"
+  fi
+fi
+
+deactivate
+
+# ---------------------------------------------------------------------------
 # Test 3 — motion render (ops-console example)
 # ---------------------------------------------------------------------------
 if [ $SKIP_MOTION -eq 1 ]; then
