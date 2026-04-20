@@ -110,6 +110,28 @@ else
   pass "doctor ran (non-zero exit tolerated)"
 fi
 
+# Doctor output must mention Playwright (optional check for brand extraction).
+if grep -qi "playwright" "$WORK/doctor.log"; then
+  pass "doctor mentions playwright"
+else
+  fail "doctor output missing playwright check"
+fi
+
+# .env.example must carry all keys we promise in the README.
+ENV_EX="$PROJECT/.env.example"
+missing_keys=0
+for key in BFL_API_KEY META_ACCESS_TOKEN META_AD_ACCOUNT_ID META_PAGE_ID META_PIXEL_ID; do
+  if ! grep -q "^${key}=" "$ENV_EX"; then
+    echo "    missing key in .env.example: $key"
+    missing_keys=$((missing_keys+1))
+  fi
+done
+if [ $missing_keys -eq 0 ]; then
+  pass ".env.example has all 5 keys"
+else
+  fail ".env.example missing $missing_keys keys"
+fi
+
 # ---------------------------------------------------------------------------
 # Test 2 — static compose (advertorial example, 4x5)
 # ---------------------------------------------------------------------------

@@ -92,24 +92,39 @@ function cmdInit(targetDir) {
 }
 
 function cmdDoctor() {
-  const checks = [
+  const required = [
     { name: "node", cmd: "node --version", min: "18" },
     { name: "python3", cmd: "python3 --version" },
     { name: "pip", cmd: "pip3 --version" },
     { name: "ffmpeg (for Remotion)", cmd: "ffmpeg -version" },
   ];
+  const optional = [
+    {
+      name: "playwright (brand extraction)",
+      cmd: "python3 -c \"import playwright\"",
+      hint: "pip install playwright && playwright install chromium",
+    },
+  ];
   log("adforge doctor\n");
   let ok = true;
-  for (const c of checks) {
+  for (const c of required) {
     try {
       const out = execSync(c.cmd, { stdio: ["ignore", "pipe", "ignore"] }).toString().split("\n")[0];
-      log(`  \u2713 ${c.name.padEnd(24)} ${out}`);
+      log(`  \u2713 ${c.name.padEnd(32)} ${out}`);
     } catch (e) {
       ok = false;
-      log(`  \u2717 ${c.name.padEnd(24)} not found`);
+      log(`  \u2717 ${c.name.padEnd(32)} not found`);
     }
   }
-  log(ok ? "\nall good." : "\nsome deps missing — install them and retry.");
+  for (const c of optional) {
+    try {
+      execSync(c.cmd, { stdio: ["ignore", "ignore", "ignore"] });
+      log(`  \u2713 ${c.name.padEnd(32)} installed`);
+    } catch (e) {
+      log(`  \u25cb ${c.name.padEnd(32)} not installed (optional) — ${c.hint}`);
+    }
+  }
+  log(ok ? "\nall required deps present." : "\nsome required deps missing — install them and retry.");
   process.exit(ok ? 0 : 1);
 }
 

@@ -5,7 +5,17 @@ description: End-to-end flow for a brand-new campaign — angle, copy, assets, d
 
 # new-campaign
 
-Walk the user from a fresh idea to a PAUSED campaign on Meta. Four stages:
+Walk the user from a fresh idea to a PAUSED campaign on Meta. Four stages.
+
+## 0. Keys check (non-negotiable, runs first)
+
+Before you interview, before you draft angles, check `.env`:
+
+- No `.env` at all → route to `setup` skill, don't proceed.
+- No `BFL_API_KEY` → hero generation will fall back to `flat_brand_color`. Warn the user before briefing ("creatives will use flat brand-color backgrounds, not AI-generated heroes — set BFL_API_KEY in .env if you want FLUX heroes"). Let them decide: proceed without, or pause to add the key.
+- No `META_ACCESS_TOKEN` → everything renders locally, but `deploy.py` will only run `--dry-run`. Tell the user they'll need to upload manually or set the token before Stage 4.
+
+Skipping this check is how you end up generating twelve assets with wrong defaults that have to be thrown away.
 
 ## 1. Brief
 

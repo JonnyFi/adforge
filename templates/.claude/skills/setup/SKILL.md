@@ -1,37 +1,74 @@
 ---
 name: setup
-description: First-time onboarding — brand tokens, API keys, font files, dry-run verification. Invoked from hub when state is empty or user asks for setup.
+description: First-time onboarding — API keys, brand tokens, font files, dry-run verification. Invoked from hub when .env is missing or user asks for setup.
 ---
 
 # setup
 
-Onboard a new user. Everything local, no API calls until the very end.
+Onboard a new user. Keys first (so FLUX and Meta work downstream), then brand and fonts, then a dry-run to prove the pipeline renders.
 
 ## 1. Check runtime
 
-Run `adforge doctor` (or the equivalent checks inline): node 18+, python3, pip, ffmpeg. Missing → tell the user what to install.
+Run `adforge doctor` (or the equivalent checks inline): Node 18+, Python 3, pip, ffmpeg, and Playwright (for brand extraction from JS-rendered sites). Missing → tell the user what to install. Playwright is optional but strongly recommended — without it, brand extraction falls back to plain HTML and breaks on any modern site.
 
-## 2. Brand
+## 2. API keys — first thing, before anything else renders
 
-Open `brand.json`. Walk the user through customising:
+If `.env` is missing but `.env.example` exists, copy it: `cp .env.example .env`. Then open `.env` and walk through keys **one at a time**. Never echo secrets back, never write values yourself — only the user fills them. Your job is to explain what each key is and where to find it.
 
-- name, wordmark, domain
-- colors (ink, muted, cream, accent) — accept hex or ask "paste your brand guidelines"
+For every key, if the user asks "was ist das" or "where do I get that", walk them through the exact click-path below. Do not skim.
+
+### `BFL_API_KEY` (optional — unlocks FLUX hero images)
+
+- What it is: Black Forest Labs API key. Without it, creatives render with flat brand-color backgrounds instead of generated hero images.
+- Where to get it: https://dashboard.bfl.ai → sign up → API Keys → Create Key. Pay-as-you-go, ~1ct per image.
+- If skipped: creatives still render, just with `hero_mode: "flat_brand_color"`. Fine for MVP, upgrade later.
+
+### `META_ACCESS_TOKEN` (required for deploy)
+
+- What it is: long-lived access token for the Meta Marketing API.
+- Where to get it:
+  1. https://business.facebook.com → Settings → Users → System Users → Add.
+  2. Give the system user the `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_manage_ads` scopes.
+  3. Assign it to your Ad Account (Settings → Accounts → Ad Accounts → Assign Partners / People).
+  4. Back on the System User → Generate New Token → pick the app → select the scopes above → copy the token.
+- Scopes: `ads_management` is the critical one. Without it, every deploy call 403s.
+
+### `META_AD_ACCOUNT_ID` (required for deploy)
+
+- What it is: your Meta ad account ID, prefixed with `act_`.
+- Where to get it: https://business.facebook.com → Ads Manager → the URL contains `act=1234...`, or Settings → Ad Accounts → Account ID. Format: `act_1234567890`.
+
+### `META_PAGE_ID` (required for deploy)
+
+- What it is: the Facebook Page the ads run from.
+- Where to get it: open your FB page → About tab → scroll to "Page transparency" or "Page ID" near the bottom.
+
+### `META_PIXEL_ID` (optional — only for conversion-optimized campaigns)
+
+- What it is: Meta Pixel ID, needed when optimisation goal is `OFFSITE_CONVERSIONS` (e.g. Lead or Purchase).
+- Where to get it: https://business.facebook.com → Events Manager → Data Sources → pick your pixel → ID in the top-right.
+- If skipped: traffic-optimized campaigns still work; conversion-optimized adsets will fail on deploy.
+
+When done, confirm each key is present (grep-test the `.env` file, don't echo values). Flag which optional keys are missing and what that limits.
+
+## 3. Brand
+
+Extract brand tokens from the user's domain. Use Playwright first (handles JS-rendered sites — most modern sites won't give you usable CSS via plain fetch). Fallback order:
+
+1. `playwright` via Python: launch headless Chromium, navigate, read computed styles of `h1`, primary button, body.
+2. Screenshot + vision parse if computed styles are inconclusive.
+3. `curl` + HTML scrape only if Playwright isn't installed — warn the user this will be wrong on most modern sites.
+
+Then open `brand.json` and walk the user through customising:
+- name, wordmark, domain, `locale` (AT for .at domains, DE for .de, ask if .com or ambiguous)
+- colors (ink, muted, cream, accent) — hex only
 - voice principles (1–3 short rules)
 
 Show the diff before writing.
 
-## 3. Fonts
+## 4. Fonts
 
-Tell the user: drop `.ttf` files into `./fonts/` matching the names in `brand.json`, or change the names in `brand.json` to match files they already have. Defaults are Google Fonts (Instrument Serif, JetBrains Mono, Inter).
-
-## 4. API keys
-
-Open `.env.example`, ask for values one at a time. Write `.env`. Never echo secrets back. Required:
-
-- `BFL_API_KEY` — for hero image generation (optional, can skip)
-- `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `META_PAGE_ID` — for deploy
-- `META_PIXEL_ID` — only if using conversion-optimized adsets
+Tell the user: drop `.ttf` files into `./fonts/` matching the names in `brand.json`, or change the names in `brand.json` to match files they already have. Defaults are Google Fonts (Instrument Serif, JetBrains Mono, Inter) — link them to https://fonts.google.com.
 
 ## 5. Dry-run
 

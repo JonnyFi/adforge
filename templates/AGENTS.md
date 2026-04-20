@@ -36,7 +36,7 @@ Mode skills compose 3 backend skills:
 
 - Never call the Meta API without explicit user approval for that specific action.
 - Always `--dry-run` before a live deploy.
-- Never write `.env`. Ask the user to write it themselves.
+- Copying `.env.example` → `.env` is fine and expected on first setup; never write secret **values** — the user fills those in. Never echo secrets back.
 - Show file diffs before writing any user-content file (variants, plan JSONs).
 - Skills are markdown — follow them as instructions, not as templates to quote back.
 
