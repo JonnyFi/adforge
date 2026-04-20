@@ -234,21 +234,41 @@ def apply_chrome(canvas, variant, brand, size):
 
     Reads `brand.json` → `chrome`. Does nothing if chrome isn't configured.
 
-    Chrome is opt-in per brand, not per layout. Brands that want a wordmark on
+    Chrome is opt-in per brand, not per layout. Brands that want a mark on
     every creative configure it here once; layouts stay chrome-free so every
     brief can produce a structurally different ad.
+
+    If `chrome.wordmark.path` is set, renders the image (PNG with alpha).
+    Otherwise renders brand.wordmark / brand.name as text.
     """
     chrome = brand.data.get("chrome") or {}
     wm = chrome.get("wordmark") or {}
     if not wm.get("show"):
         return canvas
-    text = brand.wordmark
-    if not text:
-        return canvas
 
     W, H = size
     padding = int(wm.get("padding", 180))
     position = wm.get("position", "bottom-left")
+
+    if wm.get("path"):
+        logo_path = Path(wm["path"])
+        if not logo_path.is_absolute():
+            logo_path = brand.root / logo_path
+        if not logo_path.exists():
+            return canvas
+        logo = Image.open(logo_path).convert("RGBA")
+        height = int(wm.get("height", 180))
+        ratio = height / logo.height
+        width = int(logo.width * ratio)
+        logo = logo.resize((width, height), Image.LANCZOS)
+        x, y = _chrome_xy(position, W, H, width, height, padding)
+        canvas.paste(logo, (x, y), logo)
+        return canvas
+
+    text = brand.wordmark
+    if not text:
+        return canvas
+
     style = wm.get("style", "serif-italic")
     font_size = int(wm.get("fontSize", 64))
     color = _chrome_color(brand, wm.get("color", "accent"))
@@ -256,23 +276,26 @@ def apply_chrome(canvas, variant, brand, size):
     role = _STYLE_TO_ROLE.get(style, "serif_italic")
     font = brand.font(role, font_size)
     draw = ImageDraw.Draw(canvas)
+    if style == "mono-uppercase":
+        text = text.upper()
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3]
+    x, y = _chrome_xy(position, W, H, text_w, text_h, padding)
+    draw.text((x, y), text, font=font, fill=color)
+    return canvas
 
+
+def _chrome_xy(position, canvas_w, canvas_h, el_w, el_h, padding):
     vpos, hpos = position.split("-", 1)
     if hpos == "left":
         x = padding
     elif hpos == "right":
-        x = W - padding - text_w
+        x = canvas_w - padding - el_w
     else:
-        x = (W - text_w) // 2
+        x = (canvas_w - el_w) // 2
     if vpos == "top":
         y = padding
     else:
-        y = H - padding - text_h
-
-    if style == "mono-uppercase":
-        text = text.upper()
-    draw.text((x, y), text, font=font, fill=color)
-    return canvas
+        y = canvas_h - padding - el_h
+    return x, y

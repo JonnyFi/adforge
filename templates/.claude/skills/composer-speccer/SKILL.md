@@ -27,9 +27,11 @@ Every variant file has:
 
 For `engine: "static"`, add: `layout` (pick from the registry — see below), `formats` (array), and layout-specific fields. Look at existing files in `variants/` for reference.
 
-Available layouts are auto-discovered from `engines/static/layouts/`. Ship defaults: `advertorial`, `quote-card`, `stat-card`. Each module exports a `SCHEMA` dict naming the variant fields it consumes — check the module to see what's expected before drafting. If none of the registered layouts fits the brief, hand off to the `layout-synth` skill first; it will write a new module under `engines/static/layouts/` and make it available to the registry.
+Available layouts are auto-discovered from `engines/static/examples/`. Shipped as reference implementations: `advertorial`, `quote-card`, `stat-card`. Each module exports a `SCHEMA` dict naming the variant fields it consumes — check the module to see what's expected before drafting. If none of the registered layouts fits the brief, hand off to the `layout-synth` skill first; it will write a new module under `engines/static/examples/` and make it available to the registry.
 
-For `engine: "motion"`, add: `composition` (`ops-console`, `product-mockup`, `walkthrough`) and a `variant` object with the composition's expected shape (see `engines/motion/src/engines/<Name>.tsx` for the type).
+For `engine: "motion"`, add: `composition` (shipped examples: `ops-console`, `product-mockup`, `walkthrough`, `phone-notifications`) and a `variant` object with the composition's expected shape (see `engines/motion/src/examples/<Name>.tsx` for the type). If none fits, hand off to `motion-synth`.
+
+Brand wordmark placement isn't a variant field — it's configured once in `brand.json → chrome.wordmark` (or omitted for naked creatives). Don't add wordmark text into variants.
 
 ## Defaults — follow unless user asks otherwise
 

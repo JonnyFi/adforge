@@ -1,5 +1,5 @@
 import brandJson from "../../../../brand.json";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 
 type Position =
   | "bottom-left"
@@ -12,11 +12,15 @@ type Position =
 type WordmarkConfig = {
   show?: boolean;
   position?: Position;
+  padding?: number;
+  fadeInAt?: number;
+  // image mode — if path is set, renders image instead of text
+  path?: string;
+  height?: number;
+  // text mode (used when path is not set)
   style?: "serif-italic" | "sans-medium" | "mono-uppercase";
   fontSize?: number;
   color?: "accent" | "ink" | "muted" | string;
-  padding?: number;
-  fadeInAt?: number;
 };
 
 type ChromeConfig = {
@@ -33,16 +37,27 @@ const resolveColor = (key?: string): string => {
 };
 
 /**
- * Renders brand-level chrome (wordmark, etc.) on top of a composition.
+ * Renders brand-level chrome (wordmark or logo) on top of a composition.
  * Reads brand.json → `chrome`. Renders nothing if chrome isn't configured.
  *
- * This is opt-in consistency: brands that want a wordmark on every creative
+ * This is opt-in consistency: brands that want a mark on every creative
  * set it here once; compositions stay chrome-free so every brief can produce
  * a structurally different ad.
+ *
+ * If `chrome.wordmark.path` is set, renders the image (must live under
+ * `engines/motion/public/` for Remotion's staticFile to resolve it).
+ * Otherwise renders brand.wordmark / brand.name as text.
  */
 export const ChromeOverlay: React.FC = () => {
   const wm = chrome.wordmark;
   if (!wm || wm.show === false) return null;
+  if (wm.path) {
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none" }}>
+        <LogoImage config={wm} />
+      </AbsoluteFill>
+    );
+  }
   const text =
     (brandJson as { wordmark?: string; name?: string }).wordmark ??
     (brandJson as { wordmark?: string; name?: string }).name ??
@@ -50,24 +65,53 @@ export const ChromeOverlay: React.FC = () => {
   if (!text) return null;
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
-      <Wordmark text={text} config={wm} />
+      <WordmarkText text={text} config={wm} />
     </AbsoluteFill>
   );
 };
 
-const Wordmark: React.FC<{ text: string; config: WordmarkConfig }> = ({ text, config }) => {
+const positionStyle = (position: Position, padding: number): React.CSSProperties => {
+  const s: React.CSSProperties = { position: "absolute" };
+  if (position.startsWith("bottom")) s.bottom = padding;
+  if (position.startsWith("top")) s.top = padding;
+  if (position.endsWith("left")) s.left = padding;
+  if (position.endsWith("right")) s.right = padding;
+  if (position.endsWith("center")) {
+    s.left = "50%";
+    s.transform = "translateX(-50%)";
+  }
+  return s;
+};
+
+const useFadeIn = (fadeInAt: number) => {
   const frame = useCurrentFrame();
-  const position: Position = config.position ?? "bottom-left";
-  const padding = config.padding ?? 72;
-  const fadeInAt = config.fadeInAt ?? 0;
-  const opacity = interpolate(frame, [fadeInAt, fadeInAt + 15], [0, 1], {
+  return interpolate(frame, [fadeInAt, fadeInAt + 15], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+};
 
+const LogoImage: React.FC<{ config: WordmarkConfig }> = ({ config }) => {
+  const position: Position = config.position ?? "bottom-left";
+  const padding = config.padding ?? 72;
+  const height = config.height ?? 120;
+  const opacity = useFadeIn(config.fadeInAt ?? 0);
+  return (
+    <Img
+      src={staticFile(config.path!)}
+      style={{ ...positionStyle(position, padding), height, width: "auto", opacity }}
+    />
+  );
+};
+
+const WordmarkText: React.FC<{ text: string; config: WordmarkConfig }> = ({ text, config }) => {
+  const position: Position = config.position ?? "bottom-left";
+  const padding = config.padding ?? 72;
+  const opacity = useFadeIn(config.fadeInAt ?? 0);
   const style = config.style ?? "serif-italic";
+
   const baseStyle: React.CSSProperties = {
-    position: "absolute",
+    ...positionStyle(position, padding),
     color: resolveColor(config.color ?? "accent"),
     opacity,
   };
@@ -85,15 +129,6 @@ const Wordmark: React.FC<{ text: string; config: WordmarkConfig }> = ({ text, co
     baseStyle.textTransform = "uppercase";
     baseStyle.letterSpacing = 3;
     baseStyle.fontSize = config.fontSize ?? 30;
-  }
-
-  if (position.startsWith("bottom")) baseStyle.bottom = padding;
-  if (position.startsWith("top")) baseStyle.top = padding;
-  if (position.endsWith("left")) baseStyle.left = padding;
-  if (position.endsWith("right")) baseStyle.right = padding;
-  if (position.endsWith("center")) {
-    baseStyle.left = "50%";
-    baseStyle.transform = "translateX(-50%)";
   }
 
   return <div style={baseStyle}>{text}</div>;

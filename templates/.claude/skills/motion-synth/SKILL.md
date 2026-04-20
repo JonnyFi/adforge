@@ -34,7 +34,7 @@ Look at `engines/motion/src/primitives/index.ts`. Shipping primitives:
 
 - `Kicker` — all-caps mono label, fade-in from frame 0
 - `Headline` — serif "Plain. *italic.*" dual-line with spring-in
-- `BrandOutro` — wordmark, end-of-video fade-in
+- `ChromeOverlay` — reads `brand.json → chrome.wordmark` and renders the brand mark (text wordmark or logo image) at the configured corner. Renders nothing if the brand hasn't opted in. Every composition ends with `<ChromeOverlay />`; never render the mark inline.
 - `Cursor` + `ClickRipple` — cursor/tap motion with target + click feedback
 - `Ticker` — threshold-based row reveal (good for stacked data feeds)
 - `TypewriterField` — typing-in form field
@@ -58,7 +58,7 @@ Template shape:
 ```tsx
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { brand } from "../brand";
-import { Kicker, Headline, BrandOutro } from "../primitives";
+import { Kicker, Headline, ChromeOverlay } from "../primitives";
 // add only the primitives you use
 
 export type SlotTimelineVariant = {
@@ -75,18 +75,20 @@ export const SlotTimeline: React.FC<{ variant: SlotTimelineVariant }> = ({ varia
         <Kicker text={variant.kicker} />
         <Headline text={variant.headline} italic={variant.headlineItalic} />
         {/* composition-specific body */}
-        <div style={{ flex: 1 }} />
-        <BrandOutro />
       </div>
+      <ChromeOverlay />
     </AbsoluteFill>
   );
 };
 ```
 
+`ChromeOverlay` sits as the last child of `AbsoluteFill` so brand chrome paints over the composition content. It reads `brand.json` and renders nothing unless the brand opted in via `chrome.wordmark.show: true`.
+
 Rules — non-negotiable:
 
 - **Use primitives where they fit.** Don't re-implement `Kicker` / `Headline` / `Cursor` inline — every re-implementation is a future divergence bug.
-- **Use `brand` from `../brand`** for colors and the wordmark. Don't hardcode hex or font strings. If the reference uses a color not in `brand.json`, ask whether to (a) extend `brand.json` or (b) use the closest existing role.
+- **Never render the brand mark inline.** End the composition with `<ChromeOverlay />`. It reads `brand.json → chrome.wordmark` and paints either text or a logo image at the configured corner, or renders nothing if the brand hasn't opted in. Hardcoded mark rendering breaks the opt-in system — every brand using the composition gets the mark whether they want one or not.
+- **Use `brand` from `../brand`** for colors. Don't hardcode hex or font strings. If the reference uses a color not in `brand.json`, ask whether to (a) extend `brand.json` or (b) use the closest existing role.
 - **Stay inside one file.** Composition-specific sub-components (like `CallCard`, `BrowserChrome`, `StepStage`) live as locals inside the composition file. Only extract to `primitives/` when it would be used across 3+ compositions.
 - **fps + durationInFrames come from `useVideoConfig()`**, not hardcoded constants. The Composition in `Root.tsx` owns the timing.
 - **Respect the variant shape contract.** Every field a reader might want to change across brands should be a variant prop. Don't bury brand-specific copy inside the component.

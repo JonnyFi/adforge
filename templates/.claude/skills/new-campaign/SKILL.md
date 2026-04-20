@@ -39,7 +39,7 @@ Two sub-cases, same destination:
 Then:
 
 - If one of the existing layouts (`advertorial`, `quote-card`, `stat-card`) clearly matches: tell the user, continue to stage 2 with that layout locked in.
-- Otherwise: load the **`layout-synth`** skill. It drafts a new module under `engines/static/layouts/` and test-renders. Once approved, the new layout name joins the registry — then continue to stage 2 with it.
+- Otherwise: load the **`layout-synth`** skill. It drafts a new module under `engines/static/examples/` and test-renders. Once approved, the new layout name joins the registry — then continue to stage 2 with it.
 
 adforge doesn't pre-enumerate "supported creative concepts". The toolset is: PIL + `shared` primitives for the layout, plus whatever you can install ad-hoc for asset prep (bg-removal, image generation, etc.). If the user's creative ask is feasible with that toolset, say yes and build it. If it genuinely isn't, say so plainly.
 

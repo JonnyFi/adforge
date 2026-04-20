@@ -21,11 +21,20 @@ if [[ ! -f "$VARIANT" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
 if [[ ! -d node_modules ]]; then
   echo "[render] installing deps (first run)..."
   npm install --silent
+fi
+
+# Expose project-root assets/ under public/assets/ so brand.chrome path
+# references resolve the same in static (PIL) and motion (Remotion).
+if [[ -d "$PROJECT_ROOT/assets" ]]; then
+  mkdir -p public
+  rm -rf public/assets
+  cp -R "$PROJECT_ROOT/assets" public/assets
 fi
 
 # Strip wrapper fields; pass only the inner variant payload as props

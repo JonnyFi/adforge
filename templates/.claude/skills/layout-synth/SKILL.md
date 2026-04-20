@@ -1,11 +1,13 @@
 ---
 name: layout-synth
-description: Backend skill — read a reference ad (image or mockup) and synthesize a new static layout module under engines/static/layouts/. Use when the user shows a visual example that none of the existing 3 layouts match.
+description: Backend skill — read a reference ad (image or mockup) and synthesize a new static layout module under engines/static/examples/. Use when the user shows a visual example that none of the existing example layouts match.
 ---
 
 # layout-synth
 
-Turn a reference image into an executable `engines/static/layouts/<name>.py`. The user shows you a creative they want adforge to make; you produce a new layout module that renders it with their `brand.json` plugged in.
+Turn a reference image into an executable `engines/static/examples/<name>.py`. The user shows you a creative they want adforge to make; you produce a new layout module that renders it with their `brand.json` plugged in.
+
+Layouts in `engines/static/examples/` are *reference implementations*, not templates. Each new layout should be structurally distinct from existing ones — two brands using `advertorial` should never produce ads that look identical. If a reference is a cosmetic variant of an existing layout, extend the existing schema; don't clone.
 
 ## When to invoke
 
@@ -31,7 +33,7 @@ This description IS the spec. Write it down in the chat before drafting code.
 
 ### 2. Propose a name + schema
 
-Short kebab-case name: `face-first`, `before-after`, `product-caption`, `badge-card`. Check `engines/static/layouts/` — don't collide.
+Short kebab-case name: `face-first`, `before-after`, `product-caption`, `badge-card`. Check `engines/static/examples/` — don't collide.
 
 Draft a `SCHEMA` dict: which fields does a variant JSON need to drive this layout? Keep names consistent with existing layouts where possible (`headline`, `eyebrow`, `body`, `source`, `cta`). Only invent new field names for genuinely new content slots (`portrait_path`, `before_image`, `after_image`, `badge_text`).
 
@@ -63,6 +65,7 @@ Rules — non-negotiable:
   canvas.paste(shadow_layer, (x - 30, y - 20), shadow_mask)
   ```
 - **Asset preprocessing is open.** If the reference needs a cutout portrait, a duotoned product shot, a generated illustration, a masked photo, etc. — do that **outside the layout** as a prep step (ad-hoc venv, rembg, Flux, Photoshop, whatever works). The layout consumes the finished PNG. Don't bake one-off capabilities into adforge core; leave the creative problem-solving open.
+- **Never render the brand wordmark or logo inside a layout.** `apply_chrome` in `shared.py` handles it — brands opt in via `brand.json → chrome.wordmark` (text or image logo) and the composer calls `apply_chrome` after every layout render. If you hardcode `draw.text(..., brand.wordmark, ...)` or paste a logo image inside a layout, every brand using it gets a mark whether they want one or not, and the opt-in system breaks. Layout-integral editorial marks (domain stamps, footer rules specific to the layout's design) are fine — those aren't chrome.
 
 Module shape:
 
@@ -106,12 +109,12 @@ Once the user approves the output:
 
 - Delete `_layout-synth-test.json` (it was scratch).
 - Tell `composer-speccer` the new layout is available and paste the `SCHEMA`.
-- The layout is live — `engines/static/layouts/` is auto-discovered by `compose.py` on every run.
+- The layout is live — `engines/static/examples/` is auto-discovered by `compose.py` on every run.
 
 ## Rules
 
 - **One layout per file.** Don't stuff two concepts into one module.
 - **Never modify `shared.py`** unless the new layout genuinely needs a new primitive (e.g. a `draw_cutout_shadow` helper). If you do, argue for it first — "I need X because Y" — and get user sign-off.
 - **Never modify existing layouts** to make the new one work. If the reference is close to an existing layout, either fork it cleanly or make the existing one parametric via SCHEMA fields.
-- **Motion reference images**: if the user shows a video/animated mockup, this skill doesn't cover it. Hand off — motion compositions live in `engines/motion/src/engines/` and require Remotion/TSX, which is out of scope here.
+- **Motion reference images**: if the user shows a video/animated mockup, this skill doesn't cover it. Hand off to `motion-synth` — motion compositions live in `engines/motion/src/examples/` and require Remotion/TSX, which is out of scope here.
 - **No fake brand values.** If `brand.json` doesn't have a color/font the reference needs, ask the user to extend `brand.json` first, then synthesize. Don't hardcode.
