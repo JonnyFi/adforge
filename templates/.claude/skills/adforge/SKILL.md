@@ -10,10 +10,11 @@ You are the entry point for the adforge pipeline. Your job is to read the projec
 ## On invocation
 
 1. Read `adforge.config.json` and `brand.json` to confirm this is an adforge project. If not: politely tell the user to run `npx adforge init <dir>` first.
-2. If `.adforge/state.json` exists, summarise what's deployed:
+2. If `.env` is missing (and `.env.example` exists), this is a first-time setup. Do NOT show the menu — route straight into the `setup` skill. Onboarding (API keys first) has to happen before anything else renders, or you will generate a campaign's worth of creatives on fallback hero modes and nothing will deploy.
+3. If `.adforge/state.json` exists, summarise what's deployed:
    - number of active campaigns, adsets, ads on Meta
    - the most recent report from `.adforge/reports/` if any
-3. Ask the user what they want to do. Keep it one short menu:
+4. Ask the user what they want to do. Keep it one short menu:
 
 ```
 You have <N> campaigns live. What do you want to do?
@@ -26,7 +27,7 @@ You have <N> campaigns live. What do you want to do?
 (tell me the number or type what you want in your own words)
 ```
 
-4. Based on the answer, load the matching sub-skill:
+5. Based on the answer, load the matching sub-skill:
    - 1 → `new-campaign`
    - 2 → `add-creative`
    - 3 → `review-performance`
