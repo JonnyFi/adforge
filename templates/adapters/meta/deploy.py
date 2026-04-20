@@ -46,6 +46,41 @@ def find_project_root(start):
     raise SystemExit("no adforge.config.json found")
 
 
+def derive_placements(ads):
+    """Return Meta placement fields based on asset types/formats in an adset.
+
+    Rules (tuned for brand-feeling ads, not spray-and-pray):
+      - static 4x5   → Feed (FB + IG)
+      - static 9x16  → Stories only (no Reels — static in Reels looks cheap)
+      - motion 4x5   → Feed
+      - motion 9x16  → Reels + Stories
+    Audience Network and Messenger are excluded by default (low-quality placements
+    for most B2B/mid-consideration funnels). Callers can override by setting
+    `publisher_platforms` / `facebook_positions` / `instagram_positions` on the
+    adset's `targeting` directly — in that case `derive_placements` is skipped.
+    """
+    fb_positions = set()
+    ig_positions = set()
+    for ad in ads:
+        fmt = ad.get("format", "4x5")
+        is_video = ad.get("creative_type") == "video"
+        if fmt == "4x5":
+            fb_positions.add("feed")
+            ig_positions.add("stream")
+        elif fmt == "9x16":
+            fb_positions.add("story")
+            ig_positions.add("story")
+            if is_video:
+                fb_positions.add("facebook_reels")
+                ig_positions.add("reels")
+    out = {"publisher_platforms": ["facebook", "instagram"]}
+    if fb_positions:
+        out["facebook_positions"] = sorted(fb_positions)
+    if ig_positions:
+        out["instagram_positions"] = sorted(ig_positions)
+    return out
+
+
 def state_load(path):
     if path.exists():
         return json.loads(path.read_text())
@@ -135,6 +170,9 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                 print(f"  [skip] adset '{aname}' ({aid})")
             else:
                 print(f"  [create] adset '{aname}'")
+                targeting = dict(adset["targeting"])
+                if "publisher_platforms" not in targeting:
+                    targeting.update(derive_placements(adset.get("ads", [])))
                 adset_data = {
                     "name": aname,
                     "campaign_id": cid,
@@ -142,7 +180,7 @@ def deploy(plan, state, meta, project_root, page_id, pixel_id):
                     "billing_event": adset.get("billing_event", "IMPRESSIONS"),
                     "optimization_goal": adset["optimization_goal"],
                     "bid_strategy": adset.get("bid_strategy", "LOWEST_COST_WITHOUT_CAP"),
-                    "targeting": json.dumps(adset["targeting"]),
+                    "targeting": json.dumps(targeting),
                     "status": adset.get("status", "PAUSED"),
                 }
                 if "destination_type" in adset:

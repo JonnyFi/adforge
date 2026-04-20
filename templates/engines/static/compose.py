@@ -156,13 +156,14 @@ def build_readability_halo(size, brand, strength=0.85):
 
 
 def base_canvas(size, variant, brand):
-    hero_mode = variant.get("hero_mode", "radiant_gradient")
+    hero_mode = variant.get("hero_mode", "flat_brand_color")
     hero_path = variant.get("hero_image")
     if hero_path and not Path(hero_path).is_absolute():
         hero_path = str(Path.cwd() / hero_path)
     W, H = size
     canvas = Image.new("RGB", (W, H), brand.cream)
     band_h = 0
+    # flat_brand_color leaves the default cream fill alone — no-op branch
     if hero_mode == "background" and hero_path:
         bg = Image.open(hero_path).convert("RGB")
         canvas = crop_cover(bg, W, H)
@@ -290,8 +291,8 @@ def layout_advertorial(canvas, variant, brand, size, band_h):
             cursor_y += body_lh
     cursor_y += 40
 
-    # CTA
-    cta = variant.get("cta")
+    # CTA (opt-in only — Meta's platform CTA button is primary)
+    cta = variant.get("cta", "").strip() if variant.get("cta") else ""
     if cta:
         cta_bbox = draw.textbbox((0, 0), cta, font=cta_font)
         cta_w = cta_bbox[2] - cta_bbox[0]
@@ -305,8 +306,8 @@ def layout_advertorial(canvas, variant, brand, size, band_h):
     if byline:
         draw.text((pad_x, H - pad_bottom - byline_size), byline, font=byline_font, fill=brand.muted)
 
-    # bottom signature for radiant mode
-    if variant.get("hero_mode") == "radiant_gradient" and brand.wordmark:
+    # bottom signature when the lower canvas is otherwise empty (flat / gradient)
+    if variant.get("hero_mode", "flat_brand_color") in ("flat_brand_color", "radiant_gradient") and brand.wordmark:
         mono_small = brand.font("mono_medium", 36)
         wordmark_font = brand.font("serif_italic", 72)
         rule_y = H - pad_bottom - 120
@@ -384,7 +385,7 @@ def layout_quote_card(canvas, variant, brand, size, band_h):
     stamp_y = H - pad_bottom - 40
     if brand.wordmark:
         draw.text((pad_x, stamp_y), brand.wordmark, font=wordmark_font, fill=brand.accent)
-    cta = variant.get("cta")
+    cta = variant.get("cta", "").strip() if variant.get("cta") else ""
     if cta:
         cta_bbox = draw.textbbox((0, 0), cta, font=cta_font)
         cta_w = cta_bbox[2] - cta_bbox[0]

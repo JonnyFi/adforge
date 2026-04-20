@@ -34,10 +34,18 @@ Load the `creative-director` skill. It proposes 3 angles with hooks and copy dra
 
 ## 3. Assets
 
-For each angle variant, load the `composer-speccer` skill to translate the copy brief into a concrete variant JSON under `variants/`. Then:
+For each angle variant, load the `composer-speccer` skill to translate the copy brief into a concrete variant JSON under `variants/`.
 
-- **static:** `python3 engines/static/compose.py variants/<id>.json <format> outputs/static/<id>_<format>.png`
-- **motion:** `./engines/motion/render.sh variants/<id>.json <composition> outputs/motion/<id>.mp4`
+**Format defaults — propose from day one, don't stage rollouts:**
+
+- Render **both `4x5` and `9x16`** for every variant. 4x5 serves Feed (FB + IG); 9x16 serves Stories (and Reels for motion). Meta's delivery rewards multi-placement coverage — launching Feed-only "to see how it does first" is a weaker start, not a safer one.
+- Never default to `1x1` (legacy square) — it's downranked across placements.
+- Don't ask "should we also do Stories?" as an opt-in. The user can opt *out* if they explicitly don't want a placement, but multi-format is the default.
+
+Render commands:
+
+- **static:** `python3 engines/static/compose.py variants/<id>.json <format> outputs/static/<id>_<format>.png` (run once per format)
+- **motion:** `./engines/motion/render.sh variants/<id>.json <composition> outputs/motion/<id>.mp4` (motion renders format-agnostic; the composition defines the aspect)
 
 Show the user the rendered files and let them approve/reject before deploy.
 
