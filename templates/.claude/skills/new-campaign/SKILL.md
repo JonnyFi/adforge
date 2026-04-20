@@ -119,6 +119,10 @@ Set `advantage_audience: true` for Advantage+, `false` for hard. If skipped, Met
 
 ### Resolve, review, deploy
 
+Two paths depending on whether `META_ACCESS_TOKEN` is set. Tell the user upfront which branch applies:
+
+**With token — auto-resolve (default):**
+
 ```bash
 # turn strings into {id, name, audience_size} objects in place
 python3 adapters/meta/resolve.py campaign-plan.json
@@ -127,11 +131,25 @@ python3 adapters/meta/resolve.py campaign-plan.json
 python3 adapters/meta/resolve.py --auto campaign-plan.json
 ```
 
-After resolve, show the plan diff to the user — this is the moment to sanity-check matches (audience sizes, category paths) before spending money. Then:
+After resolve, show the plan diff — this is the moment to sanity-check matches (audience sizes, category paths) before spending money.
 
-- `python3 adapters/meta/deploy.py --dry-run campaign-plan.json` — preview API calls
-- `python3 adapters/meta/deploy.py campaign-plan.json` — live, everything PAUSED
+**Without token — manual UI walk:**
 
-Deploy refuses to run if it sees raw strings (means resolve wasn't run). Manual escape: write an `{"id": "12345", "name": "..."}` object directly in the plan — resolve leaves those alone.
+`resolve.py` won't work without the token. The user has to pick IDs in Meta's UI and paste them back. Walk them through it explicitly (don't assume they know where to click):
+
+1. Open https://business.facebook.com/adsmanager/
+2. Create a new adset (or edit an existing one) — the interest search only exists inside the adset composer.
+3. Scroll to **Audience → Detailed Targeting → Browse** (or type into the search field).
+4. For each free-form string in the plan, search it, pick the match, hover the entry — Meta shows the internal ID in the tooltip on some UIs, or you can inspect the DOM (`data-id` attribute on the chip). Alternative: the Facebook Audience API Explorer at https://developers.facebook.com/tools/explorer/ — paste `search?type=adinterest&q=<query>` once the user is logged in, no long-lived token needed for that endpoint.
+5. Paste each picked ID back into `campaign-plan.json` as `{"id": "12345", "name": "Pflegedienstleitung"}` — `resolve.py` leaves already-resolved objects alone, so this is a drop-in replacement for the free-form string.
+
+Then deploy flow continues the same way.
+
+**Deploy:**
+
+- `python3 adapters/meta/deploy.py --dry-run campaign-plan.json` — preview API calls (works without token; prints the request shapes)
+- `python3 adapters/meta/deploy.py campaign-plan.json` — live, everything PAUSED (needs token)
+
+Deploy refuses to run if it sees raw strings (means resolve wasn't run and the user didn't paste IDs manually either). Manual escape: write an `{"id": "12345", "name": "..."}` object directly in the plan — resolve leaves those alone.
 
 Finish with: "All deployed and paused. To go live, run `python3 adapters/meta/actions.py resume --adset <name>`."
