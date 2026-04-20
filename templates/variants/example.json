@@ -1,0 +1,15 @@
+{
+  "id": "example_v1",
+  "engine": "static",
+  "layout": "advertorial",
+  "formats": ["4x5", "9x16"],
+  "eyebrow": "Brand tagline here",
+  "headline": "The headline lives here — with an italic word",
+  "headline_italic_words": ["italic"],
+  "dateline": "City.",
+  "body": "City. The lede is a single tight sentence that proves the headline. Plain language, specific numbers, no marketing-speak.",
+  "cta": "learn more",
+  "byline": "by ExampleCo",
+  "hero_mode": "radiant_gradient",
+  "hero_image": null
+}

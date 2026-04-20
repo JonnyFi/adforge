@@ -1,0 +1,30 @@
+{
+  "$schema": "./.adforge/schema.json",
+  "brand": "./brand.json",
+  "engines": {
+    "static": {
+      "kind": "python-pil",
+      "path": "./engines/static/compose.py",
+      "layouts": ["advertorial", "stat-card", "quote-card"]
+    },
+    "motion": {
+      "kind": "remotion",
+      "path": "./engines/motion",
+      "compositions": ["ops-console", "product-mockup", "walkthrough"]
+    }
+  },
+  "adapters": {
+    "meta": {
+      "path": "./adapters/meta",
+      "state_file": "./.adforge/state.json"
+    }
+  },
+  "formats": {
+    "1x1": [2160, 2160],
+    "4x5": [2160, 2700],
+    "9x16": [2160, 3840]
+  },
+  "output_dir": "./outputs",
+  "variants_dir": "./variants",
+  "heroes_dir": "./assets/heroes"
+}

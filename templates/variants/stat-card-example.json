@@ -1,0 +1,12 @@
+{
+  "id": "stat-card-example",
+  "engine": "static",
+  "layout": "stat-card",
+  "formats": ["4x5", "9x16"],
+  "eyebrow": "Benchmark 2026",
+  "number": "83%",
+  "label": "of teams ship new creative in under 24h once adforge is set up.",
+  "support": "Measured across 12 teams using brief-to-live workflow. Median time-to-first-ad: 5h.",
+  "source": "ADFORGE BENCHMARK · INTERNAL",
+  "hero_mode": "radiant_gradient"
+}

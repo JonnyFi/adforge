@@ -1,0 +1,27 @@
+{
+  "id": "ops-console-example",
+  "engine": "motion",
+  "composition": "ops-console",
+  "variant": {
+    "kicker": "OPS CONSOLE · LIVE",
+    "headline": "Early morning.",
+    "headlineItalic": "The team is still asleep.",
+    "call": {
+      "status": "Call in progress",
+      "caller": "AI Agent",
+      "subline": "calling M. Smith · sick note",
+      "avatarLabel": "AI"
+    },
+    "transcript": [
+      { "at": 45,  "text": "AI:  Good morning, this is the team. Everything okay?" },
+      { "at": 135, "text": "MS:  I'm sick, can't make the shift today." },
+      { "at": 225, "text": "AI:  Understood. Finding replacement, informing the team." }
+    ],
+    "ticker": [
+      { "label": "05:02  Sick note",    "value": "M. Smith",             "threshold": 0.08 },
+      { "label": "05:04  Replacement",  "value": "A. Novak · available", "threshold": 0.32 },
+      { "label": "05:05  Reassign",     "value": "Route 3 · 12 stops",   "threshold": 0.58 },
+      { "label": "05:06  Team notified","value": "✓ SMS sent",           "threshold": 0.84 }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "ExampleCo",
+  "wordmark": "ExampleCo",
+  "domain": "example.com",
+  "colors": {
+    "ink": "#1e1813",
+    "muted": "#6b5d4c",
+    "cream": "#fbf6ec",
+    "cream_alt": "#f5eadc",
+    "accent": "#b8791a",
+    "highlight": "#c26a42",
+    "success": "#4c8f50"
+  },
+  "fonts": {
+    "dir": "./fonts",
+    "serif_regular": "InstrumentSerif-Regular.ttf",
+    "serif_italic": "InstrumentSerif-Italic.ttf",
+    "mono_medium": "JetBrainsMono-Medium.ttf",
+    "body_regular": "Inter-Regular.ttf",
+    "body_medium": "Inter-Medium.ttf",
+    "body_semibold": "Inter-SemiBold.ttf",
+    "_comment": "drop .ttf files into ./fonts/. defaults above are Google Fonts (Instrument Serif, JetBrains Mono, Inter)."
+  },
+  "voice": {
+    "principles": [
+      "plain language, no marketing-speak",
+      "specific over abstract",
+      "no superlatives unless quantified"
+    ],
+    "audience": "describe your audience here",
+    "locale": "en"
+  },
+  "radiant_gradient": {
+    "top_color": [252, 240, 217],
+    "bottom_color": [252, 245, 233],
+    "stops": [
+      {"ellipse_w": 0.80, "ellipse_h": 0.70, "cx": 0.22, "cy": 0.20, "color": [251, 206, 116], "opacity": 1.0, "fade": 0.62},
+      {"ellipse_w": 0.70, "ellipse_h": 0.65, "cx": 0.82, "cy": 0.26, "color": [246, 166, 85], "opacity": 0.80, "fade": 0.65},
+      {"ellipse_w": 0.95, "ellipse_h": 0.60, "cx": 0.55, "cy": 0.98, "color": [240, 167, 66], "opacity": 0.50, "fade": 0.72}
+    ]
+  }
+}

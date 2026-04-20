@@ -1,0 +1,37 @@
+{
+  "campaigns": [
+    {
+      "name": "adforge-demo-core",
+      "objective": "OUTCOME_TRAFFIC",
+      "status": "PAUSED",
+      "special_ad_categories": [],
+      "adsets": [
+        {
+          "name": "adforge-demo-core-AT",
+          "daily_budget_cents": 1000,
+          "billing_event": "IMPRESSIONS",
+          "optimization_goal": "LANDING_PAGE_VIEWS",
+          "destination_type": "WEBSITE",
+          "attribution_spec": [{"event_type": "CLICK_THROUGH", "window_days": 1}],
+          "targeting": {
+            "geo_locations": {"countries": ["AT"]},
+            "age_min": 28,
+            "age_max": 55
+          },
+          "ads": [
+            {
+              "name": "adforge-demo-core-AT-advertorial-v1",
+              "creative_type": "image",
+              "image_path": "outputs/static/example_4x5.png",
+              "primary_text": "The primary text lives here — short, plain, concrete.",
+              "headline": "Short headline",
+              "description": "Short description.",
+              "link": "https://example.com",
+              "cta_type": "LEARN_MORE"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

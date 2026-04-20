@@ -1,0 +1,12 @@
+.env
+.env.local
+.adforge/state.json
+outputs/
+assets/heroes/*
+!assets/heroes/.gitkeep
+engines/motion/node_modules/
+engines/motion/out/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

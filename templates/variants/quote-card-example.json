@@ -1,0 +1,11 @@
+{
+  "id": "quote-card-example",
+  "engine": "static",
+  "layout": "quote-card",
+  "formats": ["4x5", "9x16"],
+  "context": "What operators said",
+  "headline": "\"I used to brief a designer every Monday. Now I brief the agent.\"",
+  "headline_highlight_phrase": "brief the agent",
+  "cta": "try adforge",
+  "hero_mode": "radiant_gradient"
+}
