@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussion
+    url: https://github.com/JonnyFi/adforge/discussions
+    about: Questions, ideas, design chats — use Discussions, not Issues.

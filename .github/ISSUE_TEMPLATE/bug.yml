@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in adforge broke or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: One or two sentences on the observed behaviour.
+      placeholder: e.g. `npx adforge init foo` exits 0 but the `variants/` folder is empty.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro steps
+      description: Minimal steps to reproduce. Please include the exact commands you ran.
+      placeholder: |
+        1. npx adforge init demo
+        2. cd demo
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: adforge version
+      description: Output of `npx adforge --version`
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent you were using
+      options:
+        - Claude Code
+        - Codex CLI
+        - Cursor
+        - Other / none
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node, Python, ffmpeg versions (run `adforge doctor`).
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,40 @@
+name: Feature request
+description: New engine, new adapter, or a change to existing behaviour
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem
+      description: What are you trying to do that adforge doesn't let you do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: If you have a concrete idea of how it should work. Skip if you just want to surface the pain.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - New engine (static or motion)
+        - New adapter (non-Meta channel)
+        - Skill / agent UX
+        - Meta adapter features
+        - Scaffold / init
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
