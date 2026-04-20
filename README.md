@@ -4,6 +4,27 @@
 
 adforge turns a one-line brief into rendered creatives and, with approval, live Meta ads. It's an opinionated pipeline, not a framework — PIL + Remotion for rendering, a small idempotent Meta adapter for deploy, and markdown skills that orchestrate the agent you already use.
 
+## Prerequisites
+
+adforge degrades gracefully — you can start without any keys and still render creatives locally. Here's what unlocks what:
+
+**Runtime (required):**
+- Node 18+
+- Python 3 with Pillow (`pip install Pillow`)
+- ffmpeg (for motion renders)
+
+**API keys (optional, unlock Meta deploy + AI hero images):**
+
+| Key | What it unlocks | How to get it |
+|-----|-----------------|---------------|
+| `META_ACCESS_TOKEN` | Deploy to Meta, review performance, pause/scale ads | [Meta Business → System User token](https://developers.facebook.com/docs/marketing-api/system-users) with `ads_management` + `pages_read_engagement` scopes |
+| `META_AD_ACCOUNT_ID` | Same as above — target account | Ads Manager → Account Settings (format: `act_1234...`) |
+| `META_PAGE_ID` | Page to run ads from | Your FB page → About → Page ID |
+| `META_PIXEL_ID` *(optional)* | Conversion-optimized campaigns | Events Manager → Data Sources → Pixel ID |
+| `BFL_API_KEY` *(optional)* | AI-generated hero images via Flux | [bfl.ml/api](https://bfl.ml/api) (pay-as-you-go) |
+
+**Without any keys:** you can still scaffold, render static + motion creatives, and iterate locally. You just can't deploy or auto-generate heroes (use `hero_mode: "radiant_gradient"` or your own images instead).
+
 ## Install
 
 ```bash
