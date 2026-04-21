@@ -38,5 +38,11 @@ jobs:
       - name: run test harness (skip motion render)
         run: ./test/run-tests.sh --skip-motion
 
+      - name: upgrade npm for OIDC trusted publishing
+        # Automatic OIDC token exchange for trusted publishers needs npm >= 11.5.1;
+        # ubuntu-latest's bundled npm 10.x silently falls back to _authToken (empty)
+        # and the registry returns E404 instead of exchanging the GitHub OIDC token.
+        run: npm install -g npm@latest
+
       - name: publish to npm with provenance
         run: npm publish --provenance --access public
