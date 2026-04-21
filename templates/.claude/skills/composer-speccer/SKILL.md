@@ -36,7 +36,7 @@ Brand wordmark placement isn't a variant field — it's configured once in `bran
 ## Defaults — follow unless user asks otherwise
 
 - **`formats`: `["4x5", "9x16"]`** — 4x5 goes to Feed (FB + IG), 9x16 goes to Stories (and Reels for motion). Never default to 1x1 (legacy placement, downranked). Never ship only one format "for later" — Meta's delivery rewards multi-placement from day one.
-- **`hero_mode`: `"flat_brand_color"`** — clean brand-color background, works without FLUX or stock images. Use `radiant_gradient` as an explicit stylistic choice; `background` or `top_band` if the user provides a photo; only use `background` with a FLUX-generated hero if `BFL_API_KEY` is set and the user asked for it.
+- **`hero_mode`: `"flat_brand_color"`** — clean brand-color background, works without any image-generation key. Use `radiant_gradient` as an explicit stylistic choice; `background` or `top_band` if the user provides a photo; only use `background` with a generated hero if an image-provider key is set (`BFL_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `REPLICATE_API_TOKEN`, `STABILITY_API_KEY`, or `FAL_KEY`) and the user asked for it.
 - **`cta`: omit or `""`** — Meta has a platform CTA button on every ad unit. An in-creative CTA text is redundant in most cases, and adds a second focal point that fights the platform button. Only include an in-creative `cta` if the user explicitly asks for one (e.g. stylistic "learn more" link under a pull-quote, or when the layout has no other bottom element).
 
 ## Process
@@ -49,6 +49,6 @@ Brand wordmark placement isn't a variant field — it's configured once in `bran
 
 ## Rules
 
-- Never invent hero images. If the brief implies a photo but none is specified: use `hero_mode: "flat_brand_color"` (new default), or if `BFL_API_KEY` is set and the user wants it, prompt-engineer a flux call and ask the user to run it.
+- Never invent hero images. If the brief implies a photo but none is specified: use `hero_mode: "flat_brand_color"` (default), or if an image-provider key is set and the user wants it, prompt-engineer a hero call — `engines/static/generate_hero.py` dispatches to whichever provider is configured.
 - Respect brand colors already in `brand.json` — don't override in variants unless the user explicitly asks.
 - Stat-card numbers must be sourced. No numbers without a `source` field.

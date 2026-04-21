@@ -12,7 +12,7 @@ Walk the user from a fresh idea to a PAUSED campaign on Meta.
 Before you interview, before you draft angles, check `.env`:
 
 - No `.env` at all → route to `setup` skill, don't proceed.
-- No `BFL_API_KEY` → hero generation will fall back to `flat_brand_color`. Warn the user before briefing ("creatives will use flat brand-color backgrounds, not AI-generated heroes — set BFL_API_KEY in .env if you want FLUX heroes — or another image source; adforge doesn't care where the PNG comes from"). Let them decide: proceed without, or pause to add the key.
+- No image-provider key (`BFL_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `REPLICATE_API_TOKEN`, `STABILITY_API_KEY`, or `FAL_KEY`) → hero generation will fall back to `flat_brand_color`. Warn the user before briefing ("creatives will use flat brand-color backgrounds, not AI-generated heroes — set any one of the image-provider keys in .env if you want generated heroes; adforge auto-detects the one you provide, or use `IMAGE_PROVIDER=<name>` to pin it. Bringing a provider adforge doesn't have built-in? Invoke `image-provider-synth`."). Let them decide: proceed without, or pause to add a key.
 - No `META_ACCESS_TOKEN` → everything renders locally, but `deploy.py` will only run `--dry-run`. Tell the user they'll need to upload manually or set the token before the deploy stage.
 
 Skipping this check is how you end up generating twelve assets with wrong defaults that have to be thrown away.
