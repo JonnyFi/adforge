@@ -61,3 +61,26 @@ export const fontFaceCss = [
 ]
   .filter(Boolean)
   .join("\n");
+
+// Brand-font injection must live inside each composition's component tree.
+// Remotion mounts only the selected composition when rendering — a `<style>`
+// element sibling of `<Composition>` in registerRoot never reaches the render
+// iframe, so every branded render silently falls back to browser-default
+// fonts. Wrap each composition via `withBrandFonts(...)` in Root.tsx so the
+// @font-face CSS rides along with whichever composition Remotion mounts.
+export const BrandFonts: React.FC = () => (
+  <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
+);
+
+export function withBrandFonts<P extends object>(
+  Component: React.ComponentType<P>,
+): React.FC<P> {
+  const Wrapped: React.FC<P> = (props) => (
+    <>
+      <BrandFonts />
+      <Component {...props} />
+    </>
+  );
+  Wrapped.displayName = `withBrandFonts(${Component.displayName ?? Component.name ?? "Component"})`;
+  return Wrapped;
+}

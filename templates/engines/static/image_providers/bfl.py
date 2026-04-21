@@ -6,8 +6,8 @@ Verified: 2026-04-21
 
 Env:
     BFL_API_KEY   required — https://dashboard.bfl.ai/keys
-    BFL_MODEL     optional — defaults to flux-2-max. Other options:
-                  flux-2-pro, flux-2-flex, flux-pro-1.1, flux-schnell, …
+    BFL_MODEL     optional — defaults to flux-2-pro. Other options:
+                  flux-2-max, flux-2-flex, flux-pro-1.1, flux-schnell, …
 
 The BFL API is asynchronous: POST /v1/<model> returns {id, polling_url},
 then GET polling_url loops until status is "Ready" and result.sample holds
@@ -22,7 +22,7 @@ import time
 import urllib.error
 import urllib.request
 
-DEFAULT_MODEL = "flux-2-max"
+DEFAULT_MODEL = "flux-2-pro"  # CONTRACT.md:25 — "not the cheapest or the flagship"
 ENDPOINT = "https://api.bfl.ai/v1"
 POLL_MAX_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2

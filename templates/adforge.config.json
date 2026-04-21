@@ -10,7 +10,7 @@
     "motion": {
       "kind": "remotion",
       "path": "./engines/motion",
-      "compositions": ["ops-console", "product-mockup", "walkthrough"]
+      "compositions": ["ops-console", "product-mockup", "walkthrough", "phone-notifications"]
     }
   },
   "adapters": {
