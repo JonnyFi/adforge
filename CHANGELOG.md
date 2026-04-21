@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.1 — 2026-04-21
+
+Post-release fix pass driven by a Karpathy-style 3-stage LLM council audit. Six criticals (Meta adapter compliance + rendering correctness) plus tooling hardening.
+
+### Fixed
+
+- **Meta Customer Audiences upload now conforms to Customer List Terms.** `adapters/meta/deploy.py::upload_customer_file` validates CSV headers against Meta's schema (`EMAIL/PHONE/FN/LN/CT/ST/ZIP/COUNTRY/DOBY/DOBM/DOBD/GEN/MADID/EXTERN_ID`), accepts German aliases (`vorname→FN`, `plz→ZIP`, `land→COUNTRY`, …), normalizes per-field before hashing (phone digits-only, name alpha-lowercase, ZIP first-5-for-US, COUNTRY ISO-2 lowercase, DOBM/DOBD zero-padded), and leaves `EXTERN_ID` unhashed. Unknown columns are rejected with a hint.
+- **DSGVO consent gate on custom audience creation.** `ensure_audience()` refuses to create a `custom_list` audience unless the plan carries `"consent_confirmed": true`. Art. 6/7 GDPR compliance is not optional and can't be assumed from a CSV filename.
+- **Video upload waits for Meta processing before creating the ad.** `Meta.upload_video()` polls `GET /{video_id}?fields=status` until `video_status=="ready"` (300s timeout, 4s interval). Previously the ad creative could reference a still-encoding video and fail silently.
+- **Leads metric no longer triple-counts.** `adapters/meta/review.py` counts only the top-level `lead` action_type; Meta already rolls up `onsite_conversion.lead_grouped` and `offsite_conversion.fb_pixel_lead` into it.
+- **Brand fonts actually render in Remotion.** `engines/motion/src/Root.tsx` previously injected `@font-face` as a sibling of `<Composition>` in `registerRoot()` — which never reaches the render iframe. Fonts now ship via a `withBrandFonts(...)` HOC wrapped around each `component={...}`, so `<style>` lives inside the composition tree.
+- **BFL default model demoted to `flux-2-pro`.** `flux-2-max` is the flagship (billed accordingly); `flux-2-pro` is the mid-tier per CONTRACT.md:25 ("not the cheapest or the flagship"). Env var / docs / test harness aligned.
+- **Radiant-gradient hero mode guards against missing brand block.** `engines/static/shared.py` warns and falls back to flat_brand_color when `hero_mode="radiant_gradient"` is set but `brand.json` has no `radiant_gradient` config. Previously crashed with `TypeError`.
+- **Pillow version pinned** to `>=10.1.0,<12.0.0` in `engines/static/requirements.txt` to avoid the 10.0.x `ImageFont.load_default(size=)` regression.
+- **Motion is 9:16-only**, per Meta's placement algorithm (Reels / Stories / Feed auto-crops). `new-campaign` skill and `motion-synth` skill updated. `phone-notifications` composition registered in `adforge.config.json`.
+
+### Changed
+
+- **`adforge doctor` checks for CLI updates.** Hits `https://registry.npmjs.org/adforge/latest` (2s timeout, swallows offline errors) and prints an upgrade hint when a newer version exists. Node major-version is now actually compared against the `>=18` floor instead of just being annotated.
+- **`adforge init` refuses to scaffold into directories containing dotfiles.** Previously filtered `.` entries out of the emptiness check and could silently clobber pre-existing `.env.example`, `.gitignore`, or `.claude/`.
+- **CLI overwrite layer now covers all motion root files** — `engines/motion/tsconfig.json`, `remotion.config.ts`, `src/index.ts`, `src/brand.ts(x)` — so `adforge upgrade` pulls framework-level changes instead of leaving projects on stale Remotion config.
+- **Release workflow tightened.** Tag-vs-package.json guard moved before the test harness (fail fast on version mismatch). Trigger narrowed from `v*` to strict semver `v[0-9]+.[0-9]+.[0-9]+` so RC tags or typos don't accidentally publish.
+
 ## 0.3.0 — 2026-04-21
 
 Provider-neutral image generation, an in-place upgrade path for existing projects, and signed releases via OIDC. The v0.2.0 README already promised "any provider works" — this release actually delivers it.

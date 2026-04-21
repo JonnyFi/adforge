@@ -32,6 +32,11 @@ const OVERWRITE_PREFIXES = [
   "engines/static/requirements.txt",
   "engines/motion/src/primitives/",
   "engines/motion/src/Root.tsx",
+  "engines/motion/src/index.ts",
+  "engines/motion/src/brand.ts",
+  "engines/motion/src/brand.tsx",
+  "engines/motion/tsconfig.json",
+  "engines/motion/remotion.config.ts",
   "engines/motion/render.sh",
   "engines/motion/package.json",
   "adapters/meta/",
@@ -159,7 +164,9 @@ function cmdInit(targetDir) {
   }
   const abs = path.resolve(targetDir);
   if (fs.existsSync(abs)) {
-    const entries = fs.readdirSync(abs).filter(n => !n.startsWith("."));
+    // Dotfiles count too — scaffolding writes .env.example, .gitignore, .claude/,
+    // .adforge/ and would otherwise silently overwrite pre-existing ones.
+    const entries = fs.readdirSync(abs);
     if (entries.length) {
       err(`error: ${abs} exists and is not empty`);
       process.exit(1);
@@ -283,9 +290,29 @@ function cmdUpgrade(args) {
   }
 }
 
-function cmdDoctor() {
+async function checkLatestVersion() {
+  // Node 18+ has global fetch. Swallow any network/parse error — doctor
+  // is diagnostic, not blocking; a stale npm mirror shouldn't fail it.
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch("https://registry.npmjs.org/adforge/latest", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return;
+    const { version } = await res.json();
+    if (version && version !== PKG.version) {
+      log(`  \u25cb adforge ${PKG.version} installed, ${version} available — npx adforge@latest upgrade`);
+    }
+  } catch (_) {
+    // offline / blocked / aborted — stay quiet
+  }
+}
+
+async function cmdDoctor() {
   const required = [
-    { name: "node", cmd: "node --version", min: "18" },
+    { name: "node", cmd: "node --version", minMajor: 18 },
     { name: "python3", cmd: "python3 --version" },
     { name: "pip", cmd: "pip3 --version" },
     { name: "ffmpeg (for Remotion)", cmd: "ffmpeg -version" },
@@ -302,6 +329,15 @@ function cmdDoctor() {
   for (const c of required) {
     try {
       const out = execSync(c.cmd, { stdio: ["ignore", "pipe", "ignore"] }).toString().split("\n")[0];
+      if (c.minMajor) {
+        const m = out.match(/(\d+)\.(\d+)\.(\d+)/);
+        const major = m ? parseInt(m[1], 10) : null;
+        if (major !== null && major < c.minMajor) {
+          ok = false;
+          log(`  \u2717 ${c.name.padEnd(32)} ${out} (need >=${c.minMajor})`);
+          continue;
+        }
+      }
       log(`  \u2713 ${c.name.padEnd(32)} ${out}`);
     } catch (e) {
       ok = false;
@@ -316,6 +352,7 @@ function cmdDoctor() {
       log(`  \u25cb ${c.name.padEnd(32)} not installed (optional) — ${c.hint}`);
     }
   }
+  await checkLatestVersion();
   log(ok ? "\nall required deps present." : "\nsome required deps missing — install them and retry.");
   process.exit(ok ? 0 : 1);
 }
