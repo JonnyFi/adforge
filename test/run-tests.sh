@@ -152,6 +152,99 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 1b — adforge upgrade (manifest + edit detection + .new sibling)
+# ---------------------------------------------------------------------------
+head "Test 1b: adforge upgrade"
+
+# init writes manifest
+if [ -f "$PROJECT/.adforge/manifest.json" ] && [ -f "$PROJECT/.adforge/version" ]; then
+  pass ".adforge/manifest.json + version written on init"
+else
+  fail ".adforge manifest/version missing after init"
+fi
+
+MANIFEST_FILES=$(python3 -c "import json; print(len(json.load(open('$PROJECT/.adforge/manifest.json'))['files']))")
+if [ "$MANIFEST_FILES" -gt 40 ]; then
+  pass "manifest tracks $MANIFEST_FILES files"
+else
+  fail "manifest tracks only $MANIFEST_FILES files (expected >40)"
+fi
+
+# Pristine upgrade: should be entirely up-to-date, no .new files written
+if (cd "$PROJECT" && node "$REPO/bin/adforge.js" upgrade --dry-run > "$WORK/upgrade-pristine.log" 2>&1); then
+  pass "upgrade --dry-run exited 0"
+else
+  fail "upgrade --dry-run exit code"
+  cat "$WORK/upgrade-pristine.log"
+fi
+
+if grep -q "up-to-date:" "$WORK/upgrade-pristine.log" && ! grep -q "review (" "$WORK/upgrade-pristine.log"; then
+  pass "pristine project reports all up-to-date"
+else
+  fail "pristine upgrade reported unexpected changes"
+  cat "$WORK/upgrade-pristine.log"
+fi
+
+# dry-run must not write anything
+if [ ! -e "$PROJECT/AGENTS.md.new" ]; then
+  pass "--dry-run wrote no files"
+else
+  fail "--dry-run created AGENTS.md.new"
+fi
+
+# Modify a tracked overwrite-layer file → upgrade must write .new sibling, keep local file intact
+cp "$PROJECT/AGENTS.md" "$WORK/AGENTS-original.md"
+echo "# local edit" >> "$PROJECT/AGENTS.md"
+
+if (cd "$PROJECT" && node "$REPO/bin/adforge.js" upgrade > "$WORK/upgrade-edited.log" 2>&1); then
+  pass "upgrade (with local edit) exited 0"
+else
+  fail "upgrade (with local edit) exit code"
+  cat "$WORK/upgrade-edited.log"
+fi
+
+if [ -f "$PROJECT/AGENTS.md.new" ]; then
+  pass ".new sibling written for edited file"
+else
+  fail "AGENTS.md.new not created"
+fi
+
+if grep -q "# local edit" "$PROJECT/AGENTS.md"; then
+  pass "local edit preserved (AGENTS.md untouched)"
+else
+  fail "local edit to AGENTS.md was clobbered"
+fi
+
+# User-owned files (brand.json) must never be touched by upgrade.
+# Use a throwaway file so we don't poison downstream tests that need brand.json.
+cp "$PROJECT/brand.json" "$WORK/brand-backup.json"
+echo '{"custom":"user work"}' > "$PROJECT/brand.json"
+(cd "$PROJECT" && node "$REPO/bin/adforge.js" upgrade > "$WORK/upgrade-userfile.log" 2>&1) || true
+if grep -q '"custom":"user work"' "$PROJECT/brand.json"; then
+  pass "user-owned brand.json preserved"
+else
+  fail "brand.json was clobbered"
+fi
+cp "$WORK/brand-backup.json" "$PROJECT/brand.json"
+
+# Delete a tracked file → upgrade should re-add it (add path)
+rm "$PROJECT/AGENTS.md" "$PROJECT/AGENTS.md.new"
+(cd "$PROJECT" && node "$REPO/bin/adforge.js" upgrade > "$WORK/upgrade-readd.log" 2>&1) || true
+if [ -f "$PROJECT/AGENTS.md" ] && grep -q "add (new file)" "$WORK/upgrade-readd.log"; then
+  pass "missing tracked file re-added on upgrade"
+else
+  fail "AGENTS.md not re-added"
+fi
+
+# Upgrade refuses outside an adforge project
+(cd "$WORK" && node "$REPO/bin/adforge.js" upgrade > "$WORK/upgrade-nonproject.log" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "not an adforge project" "$WORK/upgrade-nonproject.log"; then
+  pass "upgrade refuses when not in adforge project"
+else
+  fail "upgrade should refuse outside adforge project (rc=$rc)"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 2 — static compose (advertorial example, 4x5)
 # ---------------------------------------------------------------------------
 head "Test 2: static compose"
