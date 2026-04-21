@@ -72,6 +72,11 @@ expected=(
   "engines/static/image_providers/CONTRACT.md"
   "engines/static/image_providers/__init__.py"
   "engines/static/image_providers/bfl.py"
+  "engines/static/image_providers/google.py"
+  "engines/static/image_providers/openai.py"
+  "engines/static/image_providers/replicate.py"
+  "engines/static/image_providers/stability.py"
+  "engines/static/image_providers/fal.py"
   "engines/static/requirements.txt"
   "engines/static/examples/__init__.py"
   "engines/static/examples/advertorial.py"
@@ -791,6 +796,281 @@ assert b'shadow test|800x600' in data, data
 else
   fail "flux.sh wrapper exit code"
   cat "$WORK/flux-wrapper.log"
+fi
+
+deactivate
+
+# ---------------------------------------------------------------------------
+# Test 2g — shape tests for the remaining 5 built-in providers
+# ---------------------------------------------------------------------------
+head "Test 2g: provider shape tests (google, openai, replicate, stability, fal)"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+# Shared helper: load a provider module from disk with arbitrary env.
+run_provider_test () {
+  local name="$1"      # label for failure messages
+  local log="$2"       # log file
+  local env_prefix="$3"  # env string like 'FOO=bar BAR=baz'
+  local mod_path="$4"
+  if eval "env -i PATH=\"\$PATH\" TEST_BODY=\"\$TEST_BODY\" $env_prefix python3 - \"$mod_path\" > \"$log\" 2>&1" <<'PY'
+import importlib.util, os, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("mod_under_test", Path(sys.argv[1]))
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+exec(os.environ["TEST_BODY"], {"mod": mod})
+print("ok")
+PY
+  then
+    pass "$name"
+  else
+    fail "$name"
+    cat "$log"
+  fi
+}
+
+# 2g.1 — google (Nano Banana)
+GOOGLE_BODY='
+import json, base64
+calls = []
+class FakeResp:
+    def __init__(self, payload): self._p = json.dumps(payload).encode()
+    def read(self): return self._p
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+png = base64.b64encode(b"\x89PNG\r\n\x1a\nFAKEBYTES").decode()
+def fake_urlopen(req, timeout=None):
+    calls.append({"url": req.full_url, "headers": dict(req.header_items()), "body": req.data})
+    return FakeResp({"candidates": [{"content": {"parts": [
+        {"inlineData": {"mimeType": "image/png", "data": png}}
+    ]}}]})
+
+mod.urllib.request.urlopen = fake_urlopen
+out = mod.generate("a cat on a roof", 1024, 1024)
+assert out == b"\x89PNG\r\n\x1a\nFAKEBYTES", out
+c = calls[0]
+assert c["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", c["url"]
+hdrs = {k.lower(): v for k, v in c["headers"].items()}
+assert hdrs.get("x-goog-api-key") == "testkey", hdrs
+body = json.loads(c["body"])
+assert body["contents"][0]["parts"][0]["text"] == "a cat on a roof"
+assert body["generationConfig"]["responseModalities"] == ["TEXT", "IMAGE"]
+assert body["imageConfig"]["aspectRatio"] == "1:1", body["imageConfig"]
+'
+TEST_BODY="$GOOGLE_BODY" run_provider_test \
+  "google: endpoint + x-goog-api-key + body + b64 decode" \
+  "$WORK/dispatcher-google.log" \
+  "GEMINI_API_KEY=testkey" \
+  "$PROJECT/engines/static/image_providers/google.py"
+
+# 2g.2 — openai (gpt-image-1)
+OPENAI_BODY='
+import json, base64
+calls = []
+class FakeResp:
+    def __init__(self, payload): self._p = json.dumps(payload).encode()
+    def read(self): return self._p
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+png = base64.b64encode(b"\x89PNG\r\n\x1a\nOPENAIBYTES").decode()
+def fake_urlopen(req, timeout=None):
+    calls.append({"url": req.full_url, "headers": dict(req.header_items()), "body": req.data})
+    return FakeResp({"data": [{"b64_json": png}]})
+
+mod.urllib.request.urlopen = fake_urlopen
+out = mod.generate("a dog in the park", 1024, 1024)
+assert out == b"\x89PNG\r\n\x1a\nOPENAIBYTES", out
+c = calls[0]
+assert c["url"] == "https://api.openai.com/v1/images/generations", c["url"]
+hdrs = {k.lower(): v for k, v in c["headers"].items()}
+assert hdrs.get("authorization") == "Bearer testkey", hdrs
+body = json.loads(c["body"])
+assert body["model"] == "gpt-image-1", body
+assert body["prompt"] == "a dog in the park", body
+assert body["size"] == "1024x1024", body
+# landscape-leaning should pick 1536x1024
+out2 = mod.generate("x", 1920, 1080)
+body2 = json.loads(calls[1]["body"])
+assert body2["size"] == "1536x1024", body2["size"]
+'
+TEST_BODY="$OPENAI_BODY" run_provider_test \
+  "openai: endpoint + Bearer + gpt-image-1 body + size mapping" \
+  "$WORK/dispatcher-openai.log" \
+  "OPENAI_API_KEY=testkey" \
+  "$PROJECT/engines/static/image_providers/openai.py"
+
+# 2g.3 — replicate (google/nano-banana-2, Prefer: wait path, then fall-through poll)
+REPLICATE_BODY='
+import json
+class FakeResp:
+    def __init__(self, payload=None, bytes_=None):
+        self._p = bytes_ if bytes_ is not None else json.dumps(payload).encode()
+    def read(self): return self._p
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+# Case A: Prefer: wait returns already-succeeded
+seen = []
+def urlopen_a(req, timeout=None):
+    seen.append({"url": req.full_url, "headers": dict(req.header_items()), "body": req.data, "method": req.get_method()})
+    if req.get_method() == "POST":
+        return FakeResp({"id": "p1", "status": "succeeded",
+                          "output": ["https://cdn.replicate.com/out.png"]})
+    return FakeResp(bytes_=b"\x89PNG\r\n\x1a\nREPLIBYTES")
+
+mod.urllib.request.urlopen = urlopen_a
+mod.POLL_INTERVAL_SECONDS = 0
+out = mod.generate("a swan", 1600, 900)
+assert out == b"\x89PNG\r\n\x1a\nREPLIBYTES", out
+
+post = seen[0]
+assert post["url"] == "https://api.replicate.com/v1/models/google/nano-banana-2/predictions", post["url"]
+hdrs = {k.lower(): v for k, v in post["headers"].items()}
+assert hdrs.get("authorization") == "Bearer testkey", hdrs
+assert hdrs.get("prefer") == "wait=60", hdrs
+body = json.loads(post["body"])
+assert body["input"]["prompt"] == "a swan", body
+assert body["input"]["aspect_ratio"] == "16:9", body  # 1600x900 -> 16:9
+dl = seen[1]
+assert dl["url"] == "https://cdn.replicate.com/out.png", dl["url"]
+
+# Case B: POST returns starting, poll once to succeeded
+seen2 = []
+def urlopen_b(req, timeout=None):
+    seen2.append({"url": req.full_url, "method": req.get_method()})
+    if req.get_method() == "POST":
+        return FakeResp({"id": "p2", "status": "starting",
+                          "urls": {"get": "https://api.replicate.com/v1/predictions/p2"}})
+    if req.full_url == "https://api.replicate.com/v1/predictions/p2":
+        return FakeResp({"id": "p2", "status": "succeeded",
+                          "output": "https://cdn.replicate.com/out2.png"})
+    return FakeResp(bytes_=b"POLLPNG")
+
+mod.urllib.request.urlopen = urlopen_b
+out2 = mod.generate("test", 1024, 1024)
+assert out2 == b"POLLPNG", out2
+# Ensure we actually polled the urls.get endpoint before downloading
+assert any(s["url"] == "https://api.replicate.com/v1/predictions/p2" for s in seen2)
+'
+TEST_BODY="$REPLICATE_BODY" run_provider_test \
+  "replicate: nano-banana-2 endpoint + Bearer + Prefer wait + poll fallthrough + output url" \
+  "$WORK/dispatcher-replicate.log" \
+  "REPLICATE_API_TOKEN=testkey" \
+  "$PROJECT/engines/static/image_providers/replicate.py"
+
+# 2g.4 — stability (multipart, Accept: image/*, raw bytes)
+STABILITY_BODY='
+class FakeResp:
+    def __init__(self, b): self._b = b
+    def read(self): return self._b
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+seen = []
+def fake_urlopen(req, timeout=None):
+    seen.append({"url": req.full_url, "headers": dict(req.header_items()), "body": req.data})
+    return FakeResp(b"\x89PNG\r\n\x1a\nSTABILITYBYTES")
+
+mod.urllib.request.urlopen = fake_urlopen
+out = mod.generate("a forest", 1024, 1024)
+assert out == b"\x89PNG\r\n\x1a\nSTABILITYBYTES", out
+
+c = seen[0]
+assert c["url"] == "https://api.stability.ai/v2beta/stable-image/generate/core", c["url"]
+hdrs = {k.lower(): v for k, v in c["headers"].items()}
+assert hdrs.get("authorization") == "Bearer testkey", hdrs
+assert hdrs.get("accept") == "image/*", hdrs
+assert hdrs.get("content-type", "").startswith("multipart/form-data; boundary="), hdrs
+body = c["body"]
+# multipart must carry prompt, aspect_ratio, output_format
+assert b"name=\"prompt\"" in body, body
+assert b"a forest" in body, body
+assert b"name=\"aspect_ratio\"" in body, body
+assert b"1:1" in body, body
+assert b"name=\"output_format\"" in body, body
+assert b"png" in body, body
+
+# STABILITY_MODEL=ultra switches the URL path
+import os
+os.environ["STABILITY_MODEL"] = "ultra"
+mod.generate("x", 1024, 1024)
+assert seen[1]["url"] == "https://api.stability.ai/v2beta/stable-image/generate/ultra", seen[1]["url"]
+'
+TEST_BODY="$STABILITY_BODY" run_provider_test \
+  "stability: core endpoint + Bearer + Accept image/* + multipart fields + STABILITY_MODEL override" \
+  "$WORK/dispatcher-stability.log" \
+  "STABILITY_API_KEY=testkey" \
+  "$PROJECT/engines/static/image_providers/stability.py"
+
+# 2g.5 — fal (queue submit-poll-response)
+FAL_BODY='
+import json
+class FakeResp:
+    def __init__(self, payload=None, bytes_=None):
+        self._p = bytes_ if bytes_ is not None else json.dumps(payload).encode()
+    def read(self): return self._p
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+seen = []
+def fake_urlopen(req, timeout=None):
+    seen.append({"url": req.full_url, "headers": dict(req.header_items()),
+                  "body": req.data, "method": req.get_method()})
+    if req.get_method() == "POST":
+        return FakeResp({
+            "request_id": "r1",
+            "status_url": "https://queue.fal.run/fal-ai/flux/schnell/requests/r1/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux/schnell/requests/r1",
+        })
+    if req.full_url.endswith("/status"):
+        # first poll IN_PROGRESS, next COMPLETED
+        poll_idx = sum(1 for s in seen if s["url"].endswith("/status")) - 1
+        return FakeResp({"status": "IN_PROGRESS"} if poll_idx == 0 else {"status": "COMPLETED"})
+    if req.full_url.endswith("/requests/r1"):
+        return FakeResp({"images": [{"url": "https://v3.fal.media/files/img.png"}]})
+    return FakeResp(bytes_=b"\x89PNG\r\n\x1a\nFALBYTES")
+
+mod.urllib.request.urlopen = fake_urlopen
+mod.POLL_INTERVAL_SECONDS = 0
+out = mod.generate("prompt text", 800, 1200)
+assert out == b"\x89PNG\r\n\x1a\nFALBYTES", out
+
+post = seen[0]
+assert post["url"] == "https://queue.fal.run/fal-ai/flux/schnell", post["url"]
+hdrs = {k.lower(): v for k, v in post["headers"].items()}
+assert hdrs.get("authorization") == "Key testkey", hdrs
+body = json.loads(post["body"])
+assert body["prompt"] == "prompt text", body
+assert body["image_size"] == {"width": 800, "height": 1200}, body
+
+# must have polled status and fetched response before downloading
+urls = [s["url"] for s in seen]
+assert any(u.endswith("/status") for u in urls)
+assert any(u.endswith("/requests/r1") for u in urls)
+assert "https://v3.fal.media/files/img.png" in urls
+'
+TEST_BODY="$FAL_BODY" run_provider_test \
+  "fal: queue submit + Key auth + image_size body + status poll + response url + download" \
+  "$WORK/dispatcher-fal.log" \
+  "FAL_KEY=testkey" \
+  "$PROJECT/engines/static/image_providers/fal.py"
+
+# 2g.6 — dispatcher auto-detection order: Google key wins over OpenAI key
+# (bfl still first; this checks that a missing-bfl env falls through properly)
+if env -i PATH="$PATH" GEMINI_API_KEY=g OPENAI_API_KEY=o python3 - <<PY > "$WORK/dispatcher-order.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import pick_provider
+assert pick_provider() == "google", pick_provider()
+PY
+then
+  pass "dispatcher auto-detects google before openai"
+else
+  fail "dispatcher order"
+  cat "$WORK/dispatcher-order.log"
 fi
 
 deactivate
