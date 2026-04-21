@@ -103,6 +103,7 @@ expected=(
   ".claude/skills/performance-analyst/SKILL.md"
   ".claude/skills/layout-synth/SKILL.md"
   ".claude/skills/motion-synth/SKILL.md"
+  ".claude/skills/image-provider-synth/SKILL.md"
   ".claude/commands/adforge.md"
 )
 

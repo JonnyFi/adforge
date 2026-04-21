@@ -5,7 +5,7 @@ description: First-time onboarding — API keys, brand tokens, font files, dry-r
 
 # setup
 
-Onboard a new user. Keys first (so FLUX and Meta work downstream), then brand and fonts, then a dry-run to prove the pipeline renders.
+Onboard a new user. Keys first (so image generation and Meta work downstream), then brand and fonts, then a dry-run to prove the pipeline renders.
 
 ## 1. Check runtime
 
@@ -17,11 +17,24 @@ If `.env` is missing but `.env.example` exists, copy it: `cp .env.example .env`.
 
 For every key, if the user asks "was ist das" or "where do I get that", walk them through the exact click-path below. Do not skim.
 
-### `BFL_API_KEY` (optional — unlocks FLUX hero images)
+### Image-generation key (optional — any one of these unlocks AI hero images)
 
-- What it is: Black Forest Labs API key. Without it, creatives render with flat brand-color backgrounds instead of generated hero images.
-- Where to get it: https://dashboard.bfl.ai → sign up → API Keys → Create Key. Pay-as-you-go, ~1ct per image.
-- If skipped: creatives still render, just with `hero_mode: "flat_brand_color"`. Fine for MVP, upgrade later.
+adforge is provider-neutral. Any one of the keys below activates the hero-image pipeline. If the user already has one, use that — don't push a new signup. If they have none and want generated heroes, recommend based on what they care about:
+
+| Key                     | Provider                       | Default model                | Get a key                                |
+|-------------------------|--------------------------------|------------------------------|------------------------------------------|
+| `BFL_API_KEY`           | Black Forest Labs (FLUX)       | flux-2-max                   | https://dashboard.bfl.ai/keys            |
+| `GEMINI_API_KEY`        | Google Gemini / Nano Banana    | gemini-2.5-flash-image       | https://aistudio.google.com/apikey       |
+| `OPENAI_API_KEY`        | OpenAI Images                  | gpt-image-1                  | https://platform.openai.com/api-keys     |
+| `REPLICATE_API_TOKEN`   | Replicate (unified gateway)    | google/nano-banana-2         | https://replicate.com/account/api-tokens |
+| `STABILITY_API_KEY`     | Stability AI                   | stable-image-core            | https://platform.stability.ai/account/keys |
+| `FAL_KEY`               | fal.ai                         | fal-ai/flux/schnell          | https://fal.ai/dashboard/keys            |
+
+Auto-detection order: BFL → Google → OpenAI → Replicate → Stability → fal. To force a provider regardless of which keys are set, add `IMAGE_PROVIDER=<name>` to `.env`. To change the model within a provider, set `<PROVIDER>_MODEL` (e.g. `REPLICATE_MODEL=black-forest-labs/flux-schnell`).
+
+**If no key is set:** creatives still render — use `hero_mode: "flat_brand_color"` in variants. Fine for MVP, upgrade later.
+
+**Bringing a provider adforge doesn't have built-in?** Invoke `image-provider-synth` — it writes a new `engines/static/image_providers/<name>.py` adapter from the provider's official docs.
 
 ### `META_ACCESS_TOKEN` (required for deploy)
 
