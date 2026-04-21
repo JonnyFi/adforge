@@ -807,7 +807,7 @@ assert out == b"\x89PNG\r\n\x1a\nfakebytes"
 # submit shape
 assert len(seen["posts"]) == 1
 url, body, headers = seen["posts"][0]
-assert url == "https://api.bfl.ai/v1/flux-2-max", url
+assert url == "https://api.bfl.ai/v1/flux-2-pro", url
 assert headers == {"x-key": "test-key"}, headers
 assert body == {"prompt": "a cat", "width": 1024, "height": 1024}, body
 

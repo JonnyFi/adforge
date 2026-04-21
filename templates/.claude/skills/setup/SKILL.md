@@ -23,7 +23,7 @@ adforge is provider-neutral. Any one of the keys below activates the hero-image 
 
 | Key                     | Provider                       | Default model                | Get a key                                |
 |-------------------------|--------------------------------|------------------------------|------------------------------------------|
-| `BFL_API_KEY`           | Black Forest Labs (FLUX)       | flux-2-max                   | https://dashboard.bfl.ai/keys            |
+| `BFL_API_KEY`           | Black Forest Labs (FLUX)       | flux-2-pro                   | https://dashboard.bfl.ai/keys            |
 | `GEMINI_API_KEY`        | Google Gemini / Nano Banana    | gemini-2.5-flash-image       | https://aistudio.google.com/apikey       |
 | `OPENAI_API_KEY`        | OpenAI Images                  | gpt-image-1                  | https://platform.openai.com/api-keys     |
 | `REPLICATE_API_TOKEN`   | Replicate (unified gateway)    | google/nano-banana-2         | https://replicate.com/account/api-tokens |

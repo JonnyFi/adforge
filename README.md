@@ -32,7 +32,7 @@ adforge is provider-neutral. Drop any one of the keys below into `.env` and gene
 
 | Key | Provider | Default model | Get a key |
 |-----|----------|---------------|-----------|
-| `BFL_API_KEY` | Black Forest Labs (FLUX) | `flux-2-max` | [dashboard.bfl.ai/keys](https://dashboard.bfl.ai/keys) |
+| `BFL_API_KEY` | Black Forest Labs (FLUX) | `flux-2-pro` | [dashboard.bfl.ai/keys](https://dashboard.bfl.ai/keys) |
 | `GEMINI_API_KEY` | Google Gemini / Nano Banana | `gemini-2.5-flash-image` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `OPENAI_API_KEY` | OpenAI Images | `gpt-image-1` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | `REPLICATE_API_TOKEN` | Replicate | `google/nano-banana-2` | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) |

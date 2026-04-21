@@ -192,7 +192,17 @@ def base_canvas(size, variant, brand):
         canvas.alpha_composite(halo)
         canvas = canvas.convert("RGB")
     elif hero_mode == "radiant_gradient":
-        canvas = build_radiant_gradient((W, H), brand.radiant)
+        if brand.radiant is None:
+            import sys
+            print(
+                "warning: hero_mode='radiant_gradient' but brand.json has no "
+                "radiant_gradient block — falling back to flat_brand_color. "
+                "Add a radiant_gradient block (top_color/bottom_color/stops) "
+                "to brand.json or switch hero_mode to 'flat_brand_color'.",
+                file=sys.stderr,
+            )
+        else:
+            canvas = build_radiant_gradient((W, H), brand.radiant)
     elif hero_mode == "top_band" and hero_path:
         fmt = variant.get("format", "4x5")
         top_pct = {"4x5": 0.52, "1x1": 0.50, "9x16": 0.55}.get(fmt, 0.50)

@@ -10,7 +10,7 @@ Turn a motion reference into an executable `engines/motion/src/examples/<Name>.t
 ## When to invoke
 
 - User shows a video, GIF, or storyboard and says "I want a Reels like this".
-- User describes a motion concept that doesn't fit the example compositions (`ops-console`, `product-mockup`, `walkthrough`) — e.g. a text-on-loop meme, a split-screen before/after, a data ticker stack, a typing-headline-with-annotation, an iPhone-in-hand walkthrough.
+- User describes a motion concept that doesn't fit the example compositions (`ops-console`, `product-mockup`, `walkthrough`, `phone-notifications`) — e.g. a text-on-loop meme, a split-screen before/after, a data ticker stack, a typing-headline-with-annotation.
 - An existing example is structurally close but you'd have to stuff new props into it. Fork into a new composition instead; don't parametrize existing ones into uselessness.
 
 If one of the example compositions *does* match cleanly, hand back to `composer-speccer` to draft a variant JSON against the existing composition.
@@ -21,7 +21,7 @@ If one of the example compositions *does* match cleanly, hand back to `composer-
 
 Actually watch it. Describe out loud, in the conversation:
 
-- **Canvas + duration**: 9x16 Reels? 1x1 Feed motion? How many seconds?
+- **Duration**: how many seconds? (Canvas is 9:16 / 1080×1920 — Meta's algorithm serves vertical motion across Reels + Stories + Feed, so we don't author other aspects.)
 - **Temporal rhythm**: frame-by-frame, what happens and when? "0–1s kicker fades in. 1–2s headline springs up. 2–5s ticker counts. 5–8s ticker fills. 8–9s brand outro."
 - **Primary motion idiom**: is the motion *typographic* (text does the work), *UI-demo* (app/product mockup), *data-feed* (ticker/list reveal), or *footage-edit* (real-world clips strung together)?
 - **What the viewer is meant to *see first*** at frame 0, and *remember* at the end.
