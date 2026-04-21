@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.0 — 2026-04-21
+
+Provider-neutral image generation, an in-place upgrade path for existing projects, and signed releases via OIDC. The v0.2.0 README already promised "any provider works" — this release actually delivers it.
+
+### Added
+
+- **Six built-in image providers.** Drop any one key into `.env` and generation works end-to-end: `BFL_API_KEY` (flux-2-max), `GEMINI_API_KEY` (gemini-2.5-flash-image / Nano Banana), `OPENAI_API_KEY` (gpt-image-1), `REPLICATE_API_TOKEN` (google/nano-banana-2), `STABILITY_API_KEY` (stable-image-core), `FAL_KEY` (fal-ai/flux/schnell). Auto-detection order: BFL → Google → OpenAI → Replicate → Stability → fal. Force a provider with `IMAGE_PROVIDER=<name>`, swap the default model per provider via `<PROVIDER>_MODEL`.
+- **Provider dispatcher** (`engines/static/generate_hero.py`) — one entry point, dynamically loads the adapter matching the detected/pinned provider. Each adapter lives at `engines/static/image_providers/<name>.py`, stdlib-only, single `generate(prompt, width, height) -> bytes` contract. `engines/static/image_providers/CONTRACT.md` pins the contract; `flux.sh` is kept as a thin backcompat wrapper.
+- **`image-provider-synth` skill** — when a user has a key for a provider adforge doesn't ship (Mistral, Ideogram, Azure OpenAI, Bedrock, Cloudflare Workers AI, self-hosted Comfy, …), the agent writes a new adapter from the provider's official docs. Docs-only rule (no training-data recall, no blog-post sources), verification date stamped in the header, shape-test pattern mirrors the built-ins.
+- **`adforge upgrade` command** — pulls template changes from a newer CLI version into an existing project without clobbering local edits.
+  - `init` now writes `.adforge/manifest.json` (SHA-256 per file + version) so upgrade can distinguish pristine template files from locally-edited ones.
+  - Three-layer classification: **overwrite** (template authoritative — `.claude/skills/`, `engines/`, `adapters/`, `AGENTS.md`, …), **add-only** (starting points — `engines/static/examples/`, `variants/`), **skip** (user-owned — `brand.json`, `outputs/`, `.env`, …).
+  - Edited overwrite-layer files get a `.new` sibling instead of being clobbered; the user diffs at their own pace.
+  - `adforge upgrade --dry-run` previews without writing. Refuses to run outside an adforge project.
+- **Signed releases via OIDC trusted publisher.** `.github/workflows/release.yml` triggers on `v*` tags, runs the test harness, and publishes to npm with `--provenance`. No `NPM_TOKEN` secret needed; provenance badge links every published tarball to its commit + workflow run.
+
+### Changed
+
+- **Setup flow onboards any provider.** `.claude/skills/setup/SKILL.md` walks through the full provider matrix with the exact dashboard URL per vendor, explains auto-detection order, and documents the `IMAGE_PROVIDER` pin. Flat-brand-color remains the zero-key fallback.
+- **`new-campaign` + `composer-speccer` skills** check all six provider keys in the pre-flight and recommend `image-provider-synth` when the user brings a non-built-in provider.
+- **Test harness** covers the dispatcher, BFL live shape, and mock-HTTP shape tests for all 5 newly-added providers — 46 assertions, CI-green on `--skip-motion`.
+
+### Fixed
+
+- v0.2.0 claimed provider-neutrality in the README but only BFL was actually wired. Claim now matches implementation.
+
 ## 0.2.0 — 2026-04-20
 
 Breaks the "templates" paradigm. Layouts and motion compositions are now **reference implementations** the agent forks and adapts, not fixed templates every brand reskins. Also: proper font handling from day one, first-class custom + lookalike audiences, and a fallback path when users don't have a Meta token yet.
