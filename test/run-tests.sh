@@ -68,6 +68,10 @@ expected=(
   "engines/static/compose.py"
   "engines/static/shared.py"
   "engines/static/flux.sh"
+  "engines/static/generate_hero.py"
+  "engines/static/image_providers/CONTRACT.md"
+  "engines/static/image_providers/__init__.py"
+  "engines/static/image_providers/bfl.py"
   "engines/static/requirements.txt"
   "engines/static/examples/__init__.py"
   "engines/static/examples/advertorial.py"
@@ -560,6 +564,233 @@ then
 else
   fail "locale map"
   cat "$WORK/locale-map.log"
+fi
+
+deactivate
+
+# ---------------------------------------------------------------------------
+# Test 2f — image provider dispatcher (generate_hero.py + bfl.py)
+# ---------------------------------------------------------------------------
+head "Test 2f: image provider dispatcher"
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+
+# 2f.1 — list_providers must find the built-in bfl module on disk.
+if python3 - <<PY > "$WORK/dispatcher-list.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import list_providers
+providers = list_providers()
+assert "bfl" in providers, providers
+print("ok", providers)
+PY
+then
+  pass "list_providers finds bfl on disk"
+else
+  fail "list_providers"
+  cat "$WORK/dispatcher-list.log"
+fi
+
+# 2f.2 — pick_provider picks bfl when only BFL_API_KEY is set.
+if env -i PATH="$PATH" BFL_API_KEY=dummy python3 - <<PY > "$WORK/dispatcher-auto.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import pick_provider
+assert pick_provider() == "bfl"
+print("ok")
+PY
+then
+  pass "pick_provider auto-detects bfl from BFL_API_KEY"
+else
+  fail "auto-detect bfl"
+  cat "$WORK/dispatcher-auto.log"
+fi
+
+# 2f.3 — IMAGE_PROVIDER=bfl wins over missing keys (explicit override path).
+if env -i PATH="$PATH" IMAGE_PROVIDER=bfl python3 - <<PY > "$WORK/dispatcher-explicit.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import pick_provider
+assert pick_provider() == "bfl"
+print("ok")
+PY
+then
+  pass "IMAGE_PROVIDER override resolves without a key set"
+else
+  fail "explicit override"
+  cat "$WORK/dispatcher-explicit.log"
+fi
+
+# 2f.4 — IMAGE_PROVIDER=bogus errors with "Available:" listing built-ins.
+if env -i PATH="$PATH" IMAGE_PROVIDER=bogus python3 - <<PY > "$WORK/dispatcher-bogus.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import pick_provider
+try:
+    pick_provider()
+except RuntimeError as e:
+    msg = str(e)
+    assert "bogus" in msg, msg
+    assert "Available" in msg, msg
+    assert "bfl" in msg, msg
+    print("ok")
+else:
+    raise SystemExit("expected RuntimeError")
+PY
+then
+  pass "unknown IMAGE_PROVIDER errors with helpful hint"
+else
+  fail "bogus provider error"
+  cat "$WORK/dispatcher-bogus.log"
+fi
+
+# 2f.5 — no keys + no IMAGE_PROVIDER must fail with flat_brand_color hint.
+if env -i PATH="$PATH" python3 - <<PY > "$WORK/dispatcher-nokey.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from generate_hero import pick_provider
+try:
+    pick_provider()
+except RuntimeError as e:
+    msg = str(e)
+    assert "IMAGE_PROVIDER" in msg, msg
+    assert "flat_brand_color" in msg, msg
+    print("ok")
+else:
+    raise SystemExit("expected RuntimeError")
+PY
+then
+  pass "no-key path prints IMAGE_PROVIDER + flat_brand_color hint"
+else
+  fail "no-key error"
+  cat "$WORK/dispatcher-nokey.log"
+fi
+
+# 2f.6 — bfl module shape: correct endpoint, x-key header, body payload,
+# polls until Ready, downloads sample URL. Uses stubbed HTTP helpers so no
+# live BFL call is made.
+if env -i PATH="$PATH" BFL_API_KEY=test-key python3 - <<PY > "$WORK/dispatcher-bfl-shape.log" 2>&1
+import importlib.util, sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location(
+    "bfl_under_test",
+    Path("$PROJECT/engines/static/image_providers/bfl.py"),
+)
+bfl = importlib.util.module_from_spec(spec); spec.loader.exec_module(bfl)
+
+seen = {"posts": [], "gets": [], "downloads": []}
+
+def fake_post(url, body, headers):
+    seen["posts"].append((url, body, headers))
+    return {"id": "job-123", "polling_url": "https://api.bfl.ai/v1/get_result?id=job-123"}
+
+def fake_get(url, headers):
+    seen["gets"].append((url, headers))
+    # second poll returns Ready
+    if len(seen["gets"]) == 1:
+        return {"status": "Pending"}
+    return {"status": "Ready", "result": {"sample": "https://cdn.bfl.ai/img.png"}}
+
+def fake_download(url):
+    seen["downloads"].append(url)
+    return b"\x89PNG\r\n\x1a\nfakebytes"
+
+bfl._post_json = fake_post
+bfl._get_json = fake_get
+bfl._download = fake_download
+bfl.POLL_INTERVAL_SECONDS = 0  # don't sleep in tests
+
+out = bfl.generate("a cat", 1024, 1024)
+assert out == b"\x89PNG\r\n\x1a\nfakebytes"
+
+# submit shape
+assert len(seen["posts"]) == 1
+url, body, headers = seen["posts"][0]
+assert url == "https://api.bfl.ai/v1/flux-2-max", url
+assert headers == {"x-key": "test-key"}, headers
+assert body == {"prompt": "a cat", "width": 1024, "height": 1024}, body
+
+# poll shape
+assert len(seen["gets"]) == 2
+for gurl, ghdr in seen["gets"]:
+    assert gurl == "https://api.bfl.ai/v1/get_result?id=job-123"
+    assert ghdr == {"x-key": "test-key"}
+
+# download
+assert seen["downloads"] == ["https://cdn.bfl.ai/img.png"]
+print("ok")
+PY
+then
+  pass "bfl module: endpoint, x-key header, poll loop, download"
+else
+  fail "bfl shape"
+  cat "$WORK/dispatcher-bfl-shape.log"
+fi
+
+# 2f.7 — BFL_MODEL override changes the submit URL.
+if env -i PATH="$PATH" BFL_API_KEY=test-key BFL_MODEL=flux-schnell python3 - <<PY > "$WORK/dispatcher-bfl-model.log" 2>&1
+import importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location(
+    "bfl_under_test2",
+    Path("$PROJECT/engines/static/image_providers/bfl.py"),
+)
+bfl = importlib.util.module_from_spec(spec); spec.loader.exec_module(bfl)
+
+seen_url = []
+bfl._post_json = lambda url, body, headers: (seen_url.append(url) or
+    {"id": "j", "polling_url": "p"})
+bfl._get_json = lambda url, headers: {"status": "Ready", "result": {"sample": "s"}}
+bfl._download = lambda url: b"px"
+bfl.POLL_INTERVAL_SECONDS = 0
+
+bfl.generate("x", 512, 512)
+assert seen_url == ["https://api.bfl.ai/v1/flux-schnell"], seen_url
+print("ok")
+PY
+then
+  pass "BFL_MODEL env overrides the submit URL"
+else
+  fail "BFL_MODEL override"
+  cat "$WORK/dispatcher-bfl-model.log"
+fi
+
+# 2f.8 — flux.sh is still callable (backcompat wrapper). Feeds stdin prompt
+# and a non-existent output path through a dry wrapper: we don't want a real
+# BFL call, so we intercept by replacing generate_hero.py's generate call via
+# a temp PYTHONPATH that shadows the real bfl module.
+SHADOW="$WORK/shadow_providers"
+mkdir -p "$SHADOW/engines/static/image_providers"
+cat > "$SHADOW/engines/static/image_providers/bfl.py" <<'PY'
+def generate(prompt, width, height):
+    return b"\x89PNG\r\n\x1a\n" + f"{prompt}|{width}x{height}".encode()
+PY
+touch "$SHADOW/engines/static/image_providers/__init__.py"
+
+# Copy the real dispatcher into the shadow tree so it finds our fake bfl.py
+cp "$PROJECT/engines/static/generate_hero.py" "$SHADOW/engines/static/generate_hero.py"
+cp "$PROJECT/engines/static/flux.sh" "$SHADOW/engines/static/flux.sh"
+chmod +x "$SHADOW/engines/static/flux.sh" "$SHADOW/engines/static/generate_hero.py"
+
+SHADOW_OUT="$WORK/shadow_hero.png"
+if BFL_API_KEY=fake bash "$SHADOW/engines/static/flux.sh" "$SHADOW_OUT" 800 600 <<<"shadow test" > "$WORK/flux-wrapper.log" 2>&1; then
+  if [ -f "$SHADOW_OUT" ] && python3 -c "
+import sys
+data = open(sys.argv[1], 'rb').read()
+assert data.startswith(b'\x89PNG\r\n\x1a\n'), data[:8]
+assert b'shadow test|800x600' in data, data
+" "$SHADOW_OUT" > "$WORK/flux-wrapper-check.log" 2>&1; then
+    pass "flux.sh wrapper routes through dispatcher + writes output"
+  else
+    fail "flux.sh wrapper did not write a PNG-shaped file"
+    cat "$WORK/flux-wrapper.log"
+    cat "$WORK/flux-wrapper-check.log"
+  fi
+else
+  fail "flux.sh wrapper exit code"
+  cat "$WORK/flux-wrapper.log"
 fi
 
 deactivate
