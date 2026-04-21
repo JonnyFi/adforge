@@ -140,7 +140,8 @@ Four types, all in the same array:
   {
     "name": "customer-list-q1",
     "type": "custom_list",
-    "source_csv": "assets/audiences/customers.csv"
+    "source_csv": "assets/audiences/customers.csv",
+    "consent_confirmed": true
   },
   {
     "name": "lookalike-AT-1pct",
@@ -165,7 +166,7 @@ Notes:
 
 - `pixel` uses `META_PIXEL_ID` from `.env` unless the audience entry overrides with its own `pixel_id`. Default rule is any PageView.
 - `engagement` needs `object_id` + `object_type` (e.g. `page`, `ig_business_profile`, `video`). No defaults — you tell Meta which object's engagers to build from.
-- `custom_list` hashes the CSV client-side (SHA-256 of trimmed, lowercase values) and uploads in 10k-row batches. CSV header row defines the schema — `email`, `phone`, `first_name`, `last_name`, `zip`, `country`, etc. Raw PII never leaves the machine.
+- `custom_list` — CSV headers map (case-insensitive) to Meta's fixed Customer-List vocabulary: `email → EMAIL`, `phone → PHONE`, `first_name / vorname → FN`, `last_name / nachname → LN`, `city / ort → CT`, `state / bundesland → ST`, `zip / plz → ZIP`, `country / land → COUNTRY`, `dob_year/month/day → DOBY/DOBM/DOBD`, `gender → GEN`, `madid/idfa → MADID`, `external_id/customer_id → EXTERN_ID`. Values are normalized per Meta's spec (phones reduced to digits, names/cities to alpha, ZIP to first-5 for US, country to ISO-2) then SHA-256 hashed client-side, uploaded in 10k-row batches. Raw PII never leaves the machine. **DSGVO/GDPR gate:** every `custom_list` entry must carry `"consent_confirmed": true` — deploy refuses to upload otherwise. Only set it if every row in the CSV has the legal basis required by Meta's Customer List Terms and applicable data-protection law.
 - `lookalike.seed` is the `name` of another audience in this same `audiences` block. Meta creates seed first, lookalike second — order matters in the array. External seed? Pass `"seed": {"id": "12345"}` instead.
 - Custom/lookalike audiences don't go through `resolve.py` — they're created by `deploy.py` itself. `resolve.py` is only for interest-targeting search.
 - Don't ask about audiences unprompted on the first campaign. Pure cold-prospect plans should have no `audiences` block at all. Mention this path when the user brings up retargeting, nurture, or scaling a winner.

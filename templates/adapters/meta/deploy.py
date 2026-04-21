@@ -191,16 +191,90 @@ AUDIENCE_SUBTYPES = {
 }
 
 
-def _hash_row(value):
-    """Meta matching spec — SHA-256 of trimmed, lowercase UTF-8."""
-    return hashlib.sha256(value.strip().lower().encode("utf-8")).hexdigest()
+# Meta Customer List schema. Vocabulary is fixed — any header that does not
+# map to one of these is rejected before upload. See
+# https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences#hash
+CUSTOMER_LIST_SCHEMA = {
+    "EMAIL", "PHONE", "FN", "LN", "CT", "ST", "ZIP", "COUNTRY",
+    "DOBY", "DOBM", "DOBD", "MADID", "GEN", "EXTERN_ID",
+}
+
+# Common CSV header aliases → Meta schema key. Case-insensitive lookup. Anything
+# the user writes that isn't in here raises with a hint to rename the column.
+HEADER_ALIASES = {
+    "email": "EMAIL", "e-mail": "EMAIL", "mail": "EMAIL",
+    "phone": "PHONE", "phone_number": "PHONE", "tel": "PHONE", "mobile": "PHONE",
+    "first_name": "FN", "firstname": "FN", "given_name": "FN", "vorname": "FN", "fn": "FN",
+    "last_name": "LN", "lastname": "LN", "family_name": "LN", "surname": "LN", "nachname": "LN", "ln": "LN",
+    "city": "CT", "stadt": "CT", "ort": "CT", "ct": "CT",
+    "state": "ST", "region": "ST", "bundesland": "ST", "st": "ST",
+    "zip": "ZIP", "zipcode": "ZIP", "postal_code": "ZIP", "postcode": "ZIP", "plz": "ZIP",
+    "country": "COUNTRY", "country_code": "COUNTRY", "land": "COUNTRY",
+    "dob_year": "DOBY", "birth_year": "DOBY", "doby": "DOBY",
+    "dob_month": "DOBM", "birth_month": "DOBM", "dobm": "DOBM",
+    "dob_day": "DOBD", "birth_day": "DOBD", "dobd": "DOBD",
+    "gender": "GEN", "gen": "GEN", "sex": "GEN",
+    "madid": "MADID", "device_id": "MADID", "idfa": "MADID", "aaid": "MADID",
+    "external_id": "EXTERN_ID", "customer_id": "EXTERN_ID", "user_id": "EXTERN_ID", "extern_id": "EXTERN_ID",
+}
+
+
+def _normalize_field(key, value):
+    """Apply Meta's per-field normalization before hashing.
+
+    Spec: https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences#hash
+    """
+    v = (value or "").strip().lower()
+    if not v:
+        return ""
+    if key == "EMAIL":
+        return v  # trim + lowercase, no further normalization
+    if key == "PHONE":
+        # digits only, drop leading zeros (user must include country code)
+        return "".join(c for c in v if c.isdigit())
+    if key in ("FN", "LN", "CT"):
+        # letters only (accented forms preserved as UTF-8), no whitespace/punct
+        return "".join(c for c in v if c.isalpha())
+    if key == "ST":
+        # US 2-letter or full name → lowercase alpha only
+        return "".join(c for c in v if c.isalpha())
+    if key == "ZIP":
+        # US: first 5 chars. Non-US: full postcode, digits+letters only, no spaces.
+        cleaned = "".join(c for c in v if c.isalnum())
+        return cleaned[:5] if cleaned.isdigit() and len(cleaned) >= 5 else cleaned
+    if key == "COUNTRY":
+        return v[:2]  # ISO-3166 2-letter, lowercase
+    if key in ("DOBY",):
+        return "".join(c for c in v if c.isdigit())[:4]
+    if key in ("DOBM", "DOBD"):
+        digits = "".join(c for c in v if c.isdigit())
+        return digits.zfill(2)[:2] if digits else ""
+    if key == "GEN":
+        return v[:1]  # 'm' / 'f'
+    # MADID, EXTERN_ID: pass through lowercased trim
+    return v
+
+
+# Fields that are already opaque identifiers — Meta wants them passed as-is
+# (no SHA-256).
+PASSTHROUGH_FIELDS = {"EXTERN_ID"}
+
+
+def _hash_or_passthrough(key, value):
+    norm = _normalize_field(key, value)
+    if not norm:
+        return ""
+    if key in PASSTHROUGH_FIELDS:
+        return norm
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
 
 
 def upload_customer_file(meta, audience_id, csv_path):
     """Upload hashed user records to a CUSTOM audience in 10k-row batches.
 
-    CSV header row defines the schema Meta expects (email, phone, first_name,
-    last_name, city, state, zip, country, …). Values are hashed client-side;
+    CSV headers are mapped via HEADER_ALIASES to Meta's fixed vocabulary
+    (EMAIL/PHONE/FN/LN/CT/ST/ZIP/COUNTRY/DOBY/DOBM/DOBD/GEN/MADID/EXTERN_ID).
+    Values are normalized per Meta's spec, then SHA-256 hashed client-side;
     no raw PII leaves the machine.
     """
     import csv
@@ -208,11 +282,26 @@ def upload_customer_file(meta, audience_id, csv_path):
         reader = csv.DictReader(f)
         if not reader.fieldnames:
             raise SystemExit(f"customer file {csv_path} has no header row")
-        schema = [k.lower() for k in reader.fieldnames]
+
+        schema = []
+        for raw in reader.fieldnames:
+            key = raw.strip().lower()
+            mapped = HEADER_ALIASES.get(key) or (
+                raw.strip().upper() if raw.strip().upper() in CUSTOMER_LIST_SCHEMA else None
+            )
+            if not mapped:
+                raise SystemExit(
+                    f"customer file {csv_path}: column {raw!r} is not a recognized Meta "
+                    f"Customer List field. Rename to one of: "
+                    f"{sorted(set(HEADER_ALIASES.values()) | CUSTOMER_LIST_SCHEMA)}"
+                )
+            schema.append(mapped)
+
         rows = [
-            [_hash_row(row[col]) if row.get(col) else "" for col in reader.fieldnames]
+            [_hash_or_passthrough(key, row.get(raw, "")) for raw, key in zip(reader.fieldnames, schema)]
             for row in reader
         ]
+
     if not rows:
         print(f"  [skip upload] {csv_path}: no rows")
         return
@@ -222,7 +311,7 @@ def upload_customer_file(meta, audience_id, csv_path):
         meta.post(f"{audience_id}/users", {
             "payload": json.dumps({"schema": schema, "data": batch}),
         })
-        print(f"  [upload] {audience_id}: rows {i + 1}-{i + len(batch)}")
+        print(f"  [upload] {audience_id}: rows {i + 1}-{i + len(batch)} (schema={schema})")
 
 
 def ensure_audience(meta, state, aud, project_root, default_pixel_id):
@@ -253,6 +342,17 @@ def ensure_audience(meta, state, aud, project_root, default_pixel_id):
     csv_path = None
 
     if kind == "custom_list":
+        # DSGVO / GDPR gate — the operator has to affirm that every row they're
+        # about to hash and upload has the legal basis required under Art. 6/7.
+        # We fail closed: no `consent_confirmed: true` → no upload.
+        if not aud.get("consent_confirmed") is True:
+            raise SystemExit(
+                f"audience '{name}': custom_list upload blocked — you must confirm "
+                f"that every row has the legal basis required by Meta's Customer "
+                f"List Terms and your applicable data-protection law (DSGVO/GDPR "
+                f"Art. 6/7 in the EU). Set `\"consent_confirmed\": true` on this "
+                f"audience entry only if that is accurate."
+            )
         data["customer_file_source"] = aud.get(
             "customer_file_source", "USER_PROVIDED_ONLY"
         )
@@ -448,13 +548,38 @@ class Meta:
         _, info = next(iter(imgs.items()))
         return info["hash"]
 
-    def upload_video(self, video_path):
+    def upload_video(self, video_path, poll_timeout=300, poll_interval=4):
+        """Upload a video and block until Meta finishes processing.
+
+        `POST /advideos` returns a video_id immediately while Meta transcodes in
+        the background. Using the id in `/adcreatives` before processing is done
+        raises error 1487173. We poll `GET /{video_id}?fields=status` until
+        `status.video_status == 'ready'` (or timeout).
+        """
+        import time
         if self.dry_run:
             print(f"  [dry-run] upload video {video_path}")
             return f"dry_vid_{hashlib.md5(str(video_path).encode()).hexdigest()[:8]}"
         with open(video_path, "rb") as f:
             res = self.post(f"{self.ad_account}/advideos", data={"name": Path(video_path).name}, files={"source": f})
-        return res["id"]
+        video_id = res["id"]
+
+        deadline = time.time() + poll_timeout
+        while time.time() < deadline:
+            status_res = self.get(video_id, params={"fields": "status"})
+            video_status = (status_res.get("status") or {}).get("video_status")
+            if video_status == "ready":
+                return video_id
+            if video_status == "error":
+                raise RuntimeError(
+                    f"video {video_id} processing failed: {status_res.get('status')}"
+                )
+            print(f"    [wait] video {video_id} status={video_status!r}")
+            time.sleep(poll_interval)
+        raise RuntimeError(
+            f"video {video_id} not ready after {poll_timeout}s — "
+            f"rerun to resume (id cached in state)"
+        )
 
 
 def deploy(plan, state, meta, project_root, page_id, pixel_id):

@@ -85,9 +85,12 @@ def main():
         ctr = float(ins.get("ctr", 0))
         cpm = float(ins.get("cpm", 0))
         cpc = float(ins.get("cpc", 0))
+        # Meta's `lead` is the top-level aggregator — it already rolls up
+        # `onsite_conversion.lead_grouped` and `offsite_conversion.fb_pixel_lead`.
+        # Summing all three double/triple-counts every lead.
         leads = 0
         for a in ins.get("actions", []):
-            if a.get("action_type") in ("lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"):
+            if a.get("action_type") == "lead":
                 leads += int(a.get("value", 0))
         rows.append({
             "name": name, "id": mid, "impressions": imp, "spend_eur": spend,
