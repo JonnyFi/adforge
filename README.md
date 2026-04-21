@@ -17,7 +17,7 @@ adforge degrades gracefully — you can start without any keys and still render 
 - Python 3 with Pillow (`pip install Pillow`)
 - ffmpeg (for motion renders)
 
-**API keys (optional, unlock Meta deploy + AI hero images):**
+**Meta deploy keys (optional — unlock live ads):**
 
 | Key | What it unlocks | How to get it |
 |-----|-----------------|---------------|
@@ -25,11 +25,25 @@ adforge degrades gracefully — you can start without any keys and still render 
 | `META_AD_ACCOUNT_ID` | Same as above — target account | Ads Manager → Account Settings (format: `act_1234...`) |
 | `META_PAGE_ID` | Page to run ads from | Your FB page → About → Page ID |
 | `META_PIXEL_ID` *(optional)* | Conversion-optimized campaigns | Events Manager → Data Sources → Pixel ID |
-| `BFL_API_KEY` *(optional, tested default)* | AI-generated hero images via Flux | [bfl.ml/api](https://bfl.ml/api) (pay-as-you-go) |
 
-**On hero images:** Flux (BFL) is the tested default — that's what we've validated end-to-end. It's not required. adforge doesn't care where the PNG comes from: drop in OpenAI / Ideogram / Midjourney exports, a Figma render, or a flat `hero_mode: "radiant_gradient"` and the rest of the pipeline works the same.
+**Image-generation keys (optional — any *one* unlocks AI heroes):**
 
-**Without any keys:** you can still scaffold, render static + motion creatives, and iterate locally. You just can't deploy to Meta or auto-generate heroes inside the pipeline.
+adforge is provider-neutral. Drop any one of the keys below into `.env` and generation works end-to-end. Auto-detection order is BFL → Google → OpenAI → Replicate → Stability → fal; force a specific provider with `IMAGE_PROVIDER=<name>`, swap the default model per provider via `<PROVIDER>_MODEL`.
+
+| Key | Provider | Default model | Get a key |
+|-----|----------|---------------|-----------|
+| `BFL_API_KEY` | Black Forest Labs (FLUX) | `flux-2-max` | [dashboard.bfl.ai/keys](https://dashboard.bfl.ai/keys) |
+| `GEMINI_API_KEY` | Google Gemini / Nano Banana | `gemini-2.5-flash-image` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `OPENAI_API_KEY` | OpenAI Images | `gpt-image-1` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| `REPLICATE_API_TOKEN` | Replicate | `google/nano-banana-2` | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) |
+| `STABILITY_API_KEY` | Stability AI | `stable-image-core` | [platform.stability.ai/account/keys](https://platform.stability.ai/account/keys) |
+| `FAL_KEY` | fal.ai | `fal-ai/flux/schnell` | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) |
+
+Bringing a provider not on this list (Mistral, Ideogram, Azure OpenAI, Bedrock, Cloudflare Workers AI, a self-hosted Comfy endpoint, …)? Ask the agent to run `image-provider-synth` — it reads the provider's official docs and writes a new adapter under `engines/static/image_providers/<name>.py` that the dispatcher picks up automatically.
+
+**Without any image-generation key:** creatives still render — set `hero_mode: "flat_brand_color"` in variants. Fine for MVP.
+
+**Without any keys at all:** you can still scaffold, render static + motion creatives, and iterate locally. You just can't deploy to Meta or auto-generate heroes inside the pipeline.
 
 ## Install
 
@@ -82,10 +96,13 @@ adforge is that stack, extracted once, reusable. Tell an agent what you want, ge
 ## Commands
 
 ```bash
-npx adforge init <dir>      # scaffold a new project
-npx adforge doctor          # check Python, Node, ffmpeg, env vars
+npx adforge init <dir>            # scaffold a new project
+npx adforge upgrade [--dry-run]   # pull template updates into an existing project
+npx adforge doctor                # check Python, Node, ffmpeg, env vars
 npx adforge --version
 ```
+
+`adforge upgrade` compares every template-layer file against the recorded hash in `.adforge/manifest.json`. Pristine files get overwritten in place; locally-edited files get a `.new` sibling so you can diff at your own pace. User-owned files (`brand.json`, `variants/`, `outputs/`, `.env`) are never touched.
 
 Everything else — rendering, deploying, reviewing — happens through the agent, or directly via the scripts in `engines/` and `adapters/`.
 
