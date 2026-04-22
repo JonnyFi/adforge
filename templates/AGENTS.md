@@ -4,11 +4,15 @@ This file is for AI coding agents (Codex CLI, Cursor, etc.) working in this proj
 
 ## Quickstart
 
-When the user says "adforge", "start adforge", or asks for ads/creatives/campaigns:
+When the user asks for anything involving ads, creatives, variants, statics, motion, reels, hero images, or campaigns in this project — in any phrasing, not just the literal word "adforge":
 
-→ Read `.claude/skills/adforge/SKILL.md` and follow it.
+→ Read `.claude/skills/adforge/SKILL.md` FIRST and follow it.
 
-That is the hub. It routes to 4 mode skills depending on what the user wants:
+Examples that route through the hub: "make me a static", "draft an ad for X", "generate a reel", "I want something wild with a supernova", "new creative for the winter campaign", "turn this reference into an ad". Even a one-off "quick test image" goes through the hub — there is no shortcut path.
+
+**Never jump directly to `engines/static/compose.py`, `engines/motion/render.sh`, `generate_hero.py`, or a one-off Python/Node script to produce creatives.** The pipeline is deliberately skill-routed: hub → mode skill (`new-campaign` / `add-creative`) → `composer-speccer` → layout/motion synth when needed. Bypassing it produces template-reskinned output and re-bakes brand-specific work into ad-hoc scripts that no future user inherits.
+
+The hub is the router. It dispatches to 4 mode skills depending on what the user wants:
 
 - `.claude/skills/new-campaign/SKILL.md`
 - `.claude/skills/add-creative/SKILL.md`

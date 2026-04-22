@@ -7,6 +7,12 @@ description: Backend skill — translate an approved angle into a concrete varia
 
 Turn a creative brief (from `creative-director`) into a valid variant JSON under `variants/`.
 
+## Non-negotiable
+
+- **Never write inline compose code, ad-hoc Python scripts, or direct PIL calls to produce a creative.** Every creative goes through `compose.py` (static) or `render.sh` (motion) against a real variant JSON. If no existing layout or composition fits, invoke `layout-synth` or `motion-synth` FIRST — they produce auto-discovered modules that every future user inherits. An inline script is a bandaid that makes the brand's layout disappear the moment the chat ends.
+- **Never reuse an example composition or layout for a new brand just because the copy can be swapped in.** `ops-console`, `advertorial`, `quote-card`, `stat-card`, `walkthrough`, `product-mockup` are *reference implementations*, not templates. If the brief is structurally different from any existing one — hand off to the synth skill. Two brands using the same composition with different copy = two ads that look the same.
+- **Match is structural, not topical.** A Customer-Success B2B brand and a mobile-nursing B2B brand both "fit" `ops-console` topically, but that doesn't mean the brand-specific ad should look like a dispatcher UI. Ask: does the reference or brief *structurally* call for a dispatcher, a walkthrough, an editorial, a quote? If not — synth.
+
 ## Inputs
 
 - Angle + hook + body from creative-director
