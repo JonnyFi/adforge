@@ -1,5 +1,81 @@
 # Changelog
 
+## 0.3.4 — 2026-04-22
+
+Follow-up from the 0.3.3 blind E2E + two independent user-flow breaks.
+The skill-routing fixes in 0.3.3 held — an agent without prompt hints
+routed through `composer-speccer` → `layout-synth` / `motion-synth` and
+produced a structurally new static module (246 lines, no example reuse)
+plus a matching motion composition. But the E2E surfaced three rough
+edges around discoverability and silent fallbacks, and a broader audit
+turned up four more from issues that had stacked up behind the 0.3.3
+release. All seven ship here; no regressions to the routing behavior.
+
+### Fixed
+
+- **"Chrome" is an internal key name, not user copy (#44).** Caught in
+  the wild: `setup/SKILL.md` had a section header reading "Chrome — brand
+  mark on every creative (opt-in)", which leaked into agent output as
+  "Reply 'go' and I'll ask you the chrome question". Renamed every
+  user-facing reference to "brand mark" / "logo" / "wordmark" (German:
+  "Markenzeichen" / "Logo" / "Wortmarke"); `chrome.wordmark` stays as
+  the `brand.json` key. Added a top-level "User-facing language —
+  non-negotiable" rule that forbids (a) pre-announcing upcoming
+  questions ("Reply go and I'll ask you the X question"), (b) using
+  English phrasing when `voice.locale` is non-English, and (c)
+  surfacing any `brand.json` / schema key name verbatim.
+- **Motion end-frame brand mark was undiscoverable without the skill
+  (#44).** `motion-synth` and `layout-synth` now both check `brand.json`
+  for a `chrome.wordmark` block when the brief explicitly asks for an
+  on-creative wordmark, and surface the opt-in decision in the user's
+  locale before rendering. `composer-speccer` picks this up at handoff
+  so it happens once, at the right moment, not mid-composition.
+- **layout-synth no longer defaults to the advertorial shape (#45).**
+  E2E produced a new module (`jars_compare`, 246 lines) that was
+  structurally still half-image/half-text — the same macro-layout as
+  every existing advertorial variant. `layout-synth/SKILL.md` now
+  names this failure explicitly ("don't default to the advertorial
+  shape"), lists an 11-row macro-structure menu (full-bleed overlay,
+  split-screen 50/50, stacked-vertical-3-zones, grid-of-N, centered
+  subject with radial text, diagonal split, diptych, meme-frame, plus
+  the 3 shipped layouts), and reframes step 3 so template-copying is
+  scoped to helper-usage patterns, not macro-structure.
+- **BFL (FLUX) preserves requested aspect ratio (#34).** Previous
+  `_snap()` clamped width and height independently to `[256, 1440]`
+  stepped to multiples of 32, which silently flattened portraits to
+  squares when either dim fell outside the range. `_snap_dims(width,
+  height)` now scales both dims by a shared factor (min of
+  `1440/w`, `1440/h`, max of `256/w`, `256/h`), rounds each to the
+  32-step grid inside the cap, and logs the snap to stderr. 1728×2160
+  → 1152×1440 (4:5 preserved), 1920×1080 → 1440×800 (16:9 preserved),
+  100×200 scales up to ~320×640 (1:2 preserved).
+- **`generate_hero.py` rewrites output extension to match actual format
+  (#38).** BFL/FAL/etc. can legitimately return JPEG bytes even when
+  the variant passed `.../hero.png` as the path — the old flow wrote
+  `.png` with JPEG magic bytes, and downstream `PIL.open(...)` broke
+  on mismatch. Dispatcher now detects the format from the first bytes,
+  rewrites the extension to the canonical one (`.png` / `.jpg` /
+  `.gif` / `.webp`), logs the rewrite, and prints the final path to
+  stdout so callers can capture it.
+- **Unknown `hero_mode` values warn instead of silently flattening
+  (#35).** `shared.base_canvas` now validates against
+  `VALID_HERO_MODES = ("flat_brand_color", "background", "top_band",
+  "radiant_gradient")` and prints the valid set to stderr before
+  falling back. Same treatment for `background` / `top_band` when
+  `hero_image` is missing (previously also silent). Example: a typo
+  like `hero_mode: "generated"` used to render a plausible flat-brand
+  canvas with no hint anything was wrong; now it prints
+  `warning: unknown hero_mode='generated' — falling back to
+  flat_brand_color. Valid options: flat_brand_color, background,
+  top_band, radiant_gradient.`
+- **`.env.example` Replicate default matches `replicate.py` (#36).**
+  Stale since 0.3.2 — the file still advertised `google/nano-banana-2`
+  while the provider had switched to `black-forest-labs/flux-schnell`.
+- **`adapters/meta/review.py` uses tz-aware UTC timestamps (#40).**
+  `dt.datetime.utcnow()` is deprecated in Python 3.12+; replaced with
+  `dt.datetime.now(dt.timezone.utc)`. Output filename format
+  (`%Y%m%dT%H%M%SZ`) unchanged.
+
 ## 0.3.3 — 2026-04-22
 
 Targeted fix release for a skill-routing gap that let agents bypass the synth
