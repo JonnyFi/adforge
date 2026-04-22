@@ -20,6 +20,8 @@ FORMATS = {
     "9x16": (2160, 3840),
 }
 
+VALID_HERO_MODES = ("flat_brand_color", "background", "top_band", "radiant_gradient")
+
 
 def hex_to_rgb(h):
     h = h.lstrip("#")
@@ -184,6 +186,20 @@ def base_canvas(size, variant, brand):
     W, H = size
     canvas = Image.new("RGB", (W, H), brand.cream)
     band_h = 0
+    if hero_mode not in VALID_HERO_MODES:
+        print(
+            f"warning: unknown hero_mode={hero_mode!r} — falling back to "
+            f"flat_brand_color. Valid options: {', '.join(VALID_HERO_MODES)}.",
+            file=sys.stderr,
+        )
+        hero_mode = "flat_brand_color"
+    if hero_mode in ("background", "top_band") and not hero_path:
+        print(
+            f"warning: hero_mode={hero_mode!r} requires 'hero_image' in the variant, "
+            f"but none was provided — falling back to flat_brand_color.",
+            file=sys.stderr,
+        )
+        hero_mode = "flat_brand_color"
     if hero_mode == "background" and hero_path:
         bg = Image.open(hero_path).convert("RGB")
         canvas = crop_cover(bg, W, H)
@@ -193,7 +209,6 @@ def base_canvas(size, variant, brand):
         canvas = canvas.convert("RGB")
     elif hero_mode == "radiant_gradient":
         if brand.radiant is None:
-            import sys
             print(
                 "warning: hero_mode='radiant_gradient' but brand.json has no "
                 "radiant_gradient block — falling back to flat_brand_color. "
