@@ -34,6 +34,11 @@ _DIM_MAX = 1440
 _DIM_STEP = 32
 
 
+def _eprint(msg: str) -> None:
+    import sys
+    print(msg, file=sys.stderr)
+
+
 def _api_key() -> str:
     key = os.environ.get("BFL_API_KEY", "").strip()
     if not key:
@@ -52,10 +57,37 @@ def _error_detail(body: str, limit: int = 300) -> str:
     return s[:limit] + ("…" if len(s) > limit else "")
 
 
-def _snap(value: int) -> int:
-    """Clamp to [_DIM_MIN, _DIM_MAX] and round to nearest multiple of _DIM_STEP."""
-    v = max(_DIM_MIN, min(_DIM_MAX, int(value)))
-    return max(_DIM_MIN, min(_DIM_MAX, round(v / _DIM_STEP) * _DIM_STEP))
+def _snap_dims(width: int, height: int) -> tuple[int, int]:
+    """Clamp (w, h) into BFL's valid range [_DIM_MIN, _DIM_MAX] preserving the
+    requested aspect ratio, then round each dim to the nearest _DIM_STEP
+    multiple. Clamping each dim independently (the previous behavior) silently
+    destroyed aspect — e.g. 1728×2160 (4:5) became 1440×1440 (1:1) because
+    both dims hit the cap. Now we scale proportionally first so a 4:5 request
+    comes back ~4:5."""
+    w_req = max(1, int(width))
+    h_req = max(1, int(height))
+
+    # 1) scale down proportionally if either dim exceeds the cap
+    scale = min(1.0, _DIM_MAX / w_req, _DIM_MAX / h_req)
+    # 2) scale up proportionally if either dim is below the floor
+    scale = max(scale, _DIM_MIN / w_req, _DIM_MIN / h_req)
+
+    w = w_req * scale
+    h = h_req * scale
+
+    # 3) round to 32-multiple and re-clamp (rounding can push past the edge)
+    def _round_clamp(v: float) -> int:
+        v = round(v / _DIM_STEP) * _DIM_STEP
+        return int(max(_DIM_MIN, min(_DIM_MAX, v)))
+
+    w_out, h_out = _round_clamp(w), _round_clamp(h)
+
+    if (w_out, h_out) != (w_req, h_req):
+        _eprint(
+            f"[bfl] snapped requested {w_req}x{h_req} -> {w_out}x{h_out} "
+            f"(BFL accepts {_DIM_MIN}–{_DIM_MAX}, multiples of {_DIM_STEP})"
+        )
+    return w_out, h_out
 
 
 def _post_json(url: str, body: dict, headers: dict) -> dict:
@@ -102,7 +134,8 @@ def _download(url: str) -> bytes:
 def generate(prompt: str, width: int, height: int) -> bytes:
     model = _model()
     headers = {"x-key": _api_key()}
-    body = {"prompt": prompt, "width": _snap(width), "height": _snap(height)}
+    w, h = _snap_dims(width, height)
+    body = {"prompt": prompt, "width": w, "height": h}
 
     submit = _post_json(f"{ENDPOINT}/{model}", body, headers)
     job_id = submit.get("id")
