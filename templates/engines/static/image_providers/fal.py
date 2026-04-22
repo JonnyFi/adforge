@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -25,6 +26,12 @@ DEFAULT_MODEL = "fal-ai/flux/schnell"
 ENDPOINT = "https://queue.fal.run"
 POLL_MAX_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2
+
+
+def _error_detail(body: str, limit: int = 300) -> str:
+    """Truncate an API error body for safe logging."""
+    s = (body or "").replace("\n", " ").strip()
+    return s[:limit] + ("…" if len(s) > limit else "")
 
 
 def _api_key() -> str:
@@ -53,7 +60,9 @@ def _post(url: str, body: dict) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"fal submit failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"fal submit failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"fal submit failed: network error ({type(e).__name__})") from e
 
 
 def _get(url: str) -> dict:
@@ -65,7 +74,9 @@ def _get(url: str) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"fal poll failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"fal poll failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"fal poll failed: network error ({type(e).__name__})") from e
 
 
 def _download(url: str) -> bytes:
@@ -75,6 +86,8 @@ def _download(url: str) -> bytes:
             return resp.read()
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"fal image download failed: HTTP {e.code}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"fal image download failed: network error ({type(e).__name__})") from e
 
 
 def generate(prompt: str, width: int, height: int) -> bytes:
@@ -86,8 +99,9 @@ def generate(prompt: str, width: int, height: int) -> bytes:
     submit = _post(submit_url, body)
     status_url = submit.get("status_url")
     response_url = submit.get("response_url")
+    request_id = submit.get("request_id", "<unknown>")
     if not status_url or not response_url:
-        raise RuntimeError(f"fal submit response missing status_url/response_url: {submit!r}")
+        raise RuntimeError("fal submit response missing status_url or response_url")
 
     for _ in range(POLL_MAX_ATTEMPTS):
         time.sleep(POLL_INTERVAL_SECONDS)
@@ -96,15 +110,15 @@ def generate(prompt: str, width: int, height: int) -> bytes:
         if state == "COMPLETED":
             break
         if state not in {"IN_QUEUE", "IN_PROGRESS"}:
-            raise RuntimeError(f"fal unexpected status {state!r}: {status!r}")
+            raise RuntimeError(f"fal request {request_id} unexpected status: {state}")
     else:
         raise RuntimeError(
-            f"fal request {submit.get('request_id')!r} did not complete in "
+            f"fal request {request_id} did not complete in "
             f"{POLL_MAX_ATTEMPTS * POLL_INTERVAL_SECONDS}s"
         )
 
     result = _get(response_url)
     images = result.get("images") or []
     if not images or not images[0].get("url"):
-        raise RuntimeError(f"fal completed but response has no images[0].url: {result!r}")
+        raise RuntimeError(f"fal request {request_id} completed but has no images[0].url")
     return _download(images[0]["url"])

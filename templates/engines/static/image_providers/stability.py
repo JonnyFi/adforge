@@ -19,8 +19,15 @@ from __future__ import annotations
 import math
 import os
 import secrets
+import socket
 import urllib.error
 import urllib.request
+
+
+def _error_detail(body: str, limit: int = 300) -> str:
+    """Truncate an API error body for safe logging."""
+    s = (body or "").replace("\n", " ").strip()
+    return s[:limit] + ("…" if len(s) > limit else "")
 
 DEFAULT_MODEL = "core"  # maps to .../generate/core
 ENDPOINT = "https://api.stability.ai/v2beta/stable-image/generate"
@@ -80,4 +87,6 @@ def generate(prompt: str, width: int, height: int) -> bytes:
             return resp.read()
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Stability generate failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"Stability generate failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"Stability generate failed: network error ({type(e).__name__})") from e

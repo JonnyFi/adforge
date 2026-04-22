@@ -36,6 +36,7 @@ import requests
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 from deploy import API, derive_locale, load_brand, load_env, find_project_root
+from _http import bearer_headers, redact_body
 
 
 # plan-field → (search type, extra params). Used by resolve_query.
@@ -51,14 +52,14 @@ DOMINANCE_RATIO = 5  # top audience_size must be >= N× runner-up for --auto pic
 
 
 def search(session, token, type_, q, locale=None, limit=8, extra=None):
-    params = {"type": type_, "q": q, "limit": limit, "access_token": token}
+    params = {"type": type_, "q": q, "limit": limit}
     if locale:
         params["locale"] = locale
     if extra:
         params.update(extra)
-    r = session.get(f"{API}/search", params=params)
+    r = session.get(f"{API}/search", params=params, headers=bearer_headers(token))
     if r.status_code >= 400:
-        raise RuntimeError(f"search {type_} q={q!r} failed {r.status_code}: {r.text}")
+        raise RuntimeError(f"search {type_} q={q!r} failed {r.status_code}: {redact_body(r.text)}")
     return r.json().get("data", [])
 
 
@@ -73,8 +74,8 @@ def option_active(session, token, type_, id_):
             params={
                 "type": "targetingoptionstatus",
                 "targeting_list": json.dumps([{"type": type_, "id": str(id_)}]),
-                "access_token": token,
             },
+            headers=bearer_headers(token),
         )
         if r.status_code >= 400:
             return True  # fail open — don't drop on transient API error

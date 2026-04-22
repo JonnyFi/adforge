@@ -10,9 +10,13 @@ Usage:
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _http import bearer_headers, redact_body
 
 API = "https://graph.facebook.com/v22.0"
 
@@ -45,18 +49,16 @@ def resolve_id(state, kind, name):
 
 
 def api_post(token, obj_id, data):
-    data = dict(data)
-    data["access_token"] = token
-    r = requests.post(f"{API}/{obj_id}", data=data)
+    r = requests.post(f"{API}/{obj_id}", data=dict(data), headers=bearer_headers(token))
     if r.status_code >= 400:
-        raise RuntimeError(f"POST {obj_id} failed {r.status_code}: {r.text}")
+        raise RuntimeError(f"POST {obj_id} failed {r.status_code}: {redact_body(r.text)}")
     return r.json()
 
 
 def api_delete(token, obj_id):
-    r = requests.delete(f"{API}/{obj_id}", params={"access_token": token})
+    r = requests.delete(f"{API}/{obj_id}", headers=bearer_headers(token))
     if r.status_code >= 400:
-        raise RuntimeError(f"DELETE {obj_id} failed {r.status_code}: {r.text}")
+        raise RuntimeError(f"DELETE {obj_id} failed {r.status_code}: {redact_body(r.text)}")
     return r.json()
 
 

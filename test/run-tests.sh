@@ -996,7 +996,7 @@ TEST_BODY="$OPENAI_BODY" run_provider_test \
   "OPENAI_API_KEY=testkey" \
   "$PROJECT/engines/static/image_providers/openai.py"
 
-# 2g.3 — replicate (google/nano-banana-2, Prefer: wait path, then fall-through poll)
+# 2g.3 — replicate (black-forest-labs/flux-schnell, Prefer: wait path, then fall-through poll)
 REPLICATE_BODY='
 import json
 class FakeResp:
@@ -1021,7 +1021,7 @@ out = mod.generate("a swan", 1600, 900)
 assert out == b"\x89PNG\r\n\x1a\nREPLIBYTES", out
 
 post = seen[0]
-assert post["url"] == "https://api.replicate.com/v1/models/google/nano-banana-2/predictions", post["url"]
+assert post["url"] == "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", post["url"]
 hdrs = {k.lower(): v for k, v in post["headers"].items()}
 assert hdrs.get("authorization") == "Bearer testkey", hdrs
 assert hdrs.get("prefer") == "wait=60", hdrs
@@ -1050,7 +1050,7 @@ assert out2 == b"POLLPNG", out2
 assert any(s["url"] == "https://api.replicate.com/v1/predictions/p2" for s in seen2)
 '
 TEST_BODY="$REPLICATE_BODY" run_provider_test \
-  "replicate: nano-banana-2 endpoint + Bearer + Prefer wait + poll fallthrough + output url" \
+  "replicate: flux-schnell endpoint + Bearer + Prefer wait + poll fallthrough + output url" \
   "$WORK/dispatcher-replicate.log" \
   "REPLICATE_API_TOKEN=testkey" \
   "$PROJECT/engines/static/image_providers/replicate.py"

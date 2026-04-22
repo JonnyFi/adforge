@@ -21,8 +21,15 @@ import base64
 import json
 import math
 import os
+import socket
 import urllib.error
 import urllib.request
+
+
+def _error_detail(body: str, limit: int = 300) -> str:
+    """Truncate an API error body for safe logging."""
+    s = (body or "").replace("\n", " ").strip()
+    return s[:limit] + ("…" if len(s) > limit else "")
 
 DEFAULT_MODEL = "gemini-2.5-flash-image"
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -75,7 +82,9 @@ def generate(prompt: str, width: int, height: int) -> bytes:
             payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Gemini generate failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"Gemini generate failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"Gemini generate failed: network error ({type(e).__name__})") from e
 
     for cand in payload.get("candidates", []):
         for part in cand.get("content", {}).get("parts", []):
@@ -83,4 +92,14 @@ def generate(prompt: str, width: int, height: int) -> bytes:
             if inline and inline.get("data"):
                 return base64.b64decode(inline["data"])
 
-    raise RuntimeError(f"Gemini response had no inlineData image: {payload!r}")
+    # Gemini sometimes returns text-only responses when safety filters trigger;
+    # surface the finishReason so the caller knows whether to retry or reword.
+    finish = ""
+    for cand in payload.get("candidates", []):
+        if cand.get("finishReason"):
+            finish = str(cand["finishReason"])
+            break
+    raise RuntimeError(
+        "Gemini response had no inlineData image"
+        + (f" (finishReason={finish})" if finish else "")
+    )
