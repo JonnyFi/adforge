@@ -40,7 +40,7 @@ Look at `engines/motion/src/primitives/index.ts`. Shipping primitives:
 
 - `Kicker` — all-caps mono label, fade-in from frame 0
 - `Headline` — serif "Plain. *italic.*" dual-line with spring-in
-- `ChromeOverlay` — reads `brand.json → chrome.wordmark` and renders the brand mark (text wordmark or logo image) at the configured corner. Renders nothing if the brand hasn't opted in. Every composition ends with `<ChromeOverlay />`; never render the mark inline.
+- `ChromeOverlay` — reads `brand.json → chrome.wordmark` and renders the brand mark (text wordmark or logo image) at the configured corner. Renders nothing if the brand hasn't opted in. Every composition ends with `<ChromeOverlay />`; never render the mark inline. **If the brief explicitly asks for a wordmark/logo/brand mark in the end frame**, and `brand.json` has no `chrome.wordmark` block yet, ask the user before the composition starts whether to opt in now — `ChromeOverlay` will otherwise render nothing and the brief's requirement is silently dropped.
 - `Cursor` + `ClickRipple` — cursor/tap motion with target + click feedback
 - `Ticker` — threshold-based row reveal (good for stacked data feeds)
 - `TypewriterField` — typing-in form field
