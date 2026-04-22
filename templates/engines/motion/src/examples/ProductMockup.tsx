@@ -1,3 +1,10 @@
+/**
+ * ProductMockup — REFERENCE COMPOSITION.
+ *
+ * Fake-app UI motion (nav + click target + form fill + success state).
+ * Reusing this for a new brand will produce the same fake-app ad with
+ * different copy. Invoke `motion-synth` for new brands.
+ */
 import {
   AbsoluteFill,
   interpolate,

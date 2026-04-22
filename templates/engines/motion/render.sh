@@ -5,7 +5,7 @@
 #   ./engines/motion/render.sh <variant.json> <composition-id> <out.mp4>
 #
 # Example:
-#   ./engines/motion/render.sh variants/walkthrough-example.json walkthrough outputs/motion/walk.mp4
+#   ./engines/motion/render.sh variants/<your-id>.json walkthrough outputs/motion/walk.mp4
 #
 # Composition IDs: ops-console, product-mockup, walkthrough
 

@@ -1,5 +1,12 @@
 """advertorial — Fachartikel feel: eyebrow + accent rule + serif headline + body lede.
 
+REFERENCE IMPLEMENTATION. Read this to understand the `shared` primitives
+and the layout module contract — do not reuse as-is for a new brand. If a
+brief structurally fits an editorial/article feel, composer-speccer can
+point a new variant at `"layout": "advertorial"`; if the brief calls for
+something structurally different (portrait-first, before/after, full-bleed,
+meme-frame, …), invoke `layout-synth` to write a new module.
+
 Performs well in mid-funnel B2B placements where trust > impulse.
 """
 from PIL import ImageDraw

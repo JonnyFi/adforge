@@ -1,3 +1,10 @@
+/**
+ * Walkthrough — REFERENCE COMPOSITION.
+ *
+ * Step-by-step screenshot reveal with cursor/tap motion. Generic enough to
+ * reuse ONLY when the brand's brief is literally a "here are three taps"
+ * onboarding narrative. Otherwise invoke `motion-synth`.
+ */
 import {
   AbsoluteFill,
   Img,

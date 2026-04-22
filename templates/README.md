@@ -32,11 +32,11 @@ outputs/                rendered PNGs and MP4s
 ## Direct script usage (if you don't want the agent)
 
 ```bash
-# static
-python3 engines/static/compose.py variants/example.json 4x5 outputs/static/example_4x5.png
+# static (reference variant shipped under variants/_reference/)
+python3 engines/static/compose.py variants/_reference/example.json 4x5 outputs/static/example_4x5.png
 
 # motion
-./engines/motion/render.sh variants/ops-console-example.json ops-console outputs/motion/ops.mp4
+./engines/motion/render.sh variants/_reference/ops-console-example.json ops-console outputs/motion/ops.mp4
 
 # deploy
 python3 adapters/meta/deploy.py --dry-run adapters/meta/example-plan.json

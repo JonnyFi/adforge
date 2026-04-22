@@ -1,5 +1,9 @@
 """stat-card — oversized number + label + support line + source.
 
+REFERENCE IMPLEMENTATION. Reuse when a brief structurally leads with a
+single hard number; invoke `layout-synth` for anything structurally
+different.
+
 Use when a single hard number carries the story. Numbers without a source
 field should be refused by composer-speccer — no made-up stats.
 """

@@ -1,3 +1,13 @@
+/**
+ * OpsConsole — REFERENCE COMPOSITION.
+ *
+ * Dispatcher-UI motion idiom (call card + live transcript + ticker reveal).
+ * Every brand that renders its ads against `ops-console` will look like a
+ * dispatcher demo. For a new brand, invoke `motion-synth` to synthesize a
+ * new composition under engines/motion/src/examples/<Name>.tsx and register
+ * it in Root.tsx. Do not point a new brand's variant at this composition
+ * with copy swapped in — that's reskinning.
+ */
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { brand } from "../brand";
 import {

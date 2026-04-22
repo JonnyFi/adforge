@@ -63,8 +63,8 @@ expected=(
   ".gitignore"
   "AGENTS.md"
   "README.md"
-  "variants/example.json"
-  "variants/ops-console-example.json"
+  "variants/_reference/example.json"
+  "variants/_reference/ops-console-example.json"
   "engines/static/compose.py"
   "engines/static/shared.py"
   "engines/static/flux.sh"
@@ -296,7 +296,7 @@ pass "pillow installed"
 OUT_PNG="$PROJECT/outputs/static/example_4x5.png"
 mkdir -p "$(dirname "$OUT_PNG")"
 if python3 "$PROJECT/engines/static/compose.py" \
-     "$PROJECT/variants/example.json" 4x5 "$OUT_PNG" > "$WORK/compose.log" 2>&1; then
+     "$PROJECT/variants/_reference/example.json" 4x5 "$OUT_PNG" > "$WORK/compose.log" 2>&1; then
   pass "compose exited 0"
 else
   fail "compose exit code"
@@ -386,7 +386,7 @@ fi
 # Render the quote-card example (no cta field) to prove the CTA guard works.
 OUT_NOCTA="$PROJECT/outputs/static/quote-card_4x5.png"
 if python3 "$PROJECT/engines/static/compose.py" \
-     "$PROJECT/variants/quote-card-example.json" 4x5 "$OUT_NOCTA" > "$WORK/compose-nocta.log" 2>&1; then
+     "$PROJECT/variants/_reference/quote-card-example.json" 4x5 "$OUT_NOCTA" > "$WORK/compose-nocta.log" 2>&1; then
   pass "compose without cta exited 0"
 else
   fail "compose without cta exit code"
@@ -1191,7 +1191,7 @@ else
   mkdir -p "$(dirname "$OUT_MP4")"
 
   echo "  rendering ops-console (this can take a minute)..."
-  if (cd "$MOTION" && bash render.sh "$PROJECT/variants/ops-console-example.json" \
+  if (cd "$MOTION" && bash render.sh "$PROJECT/variants/_reference/ops-console-example.json" \
        ops-console "$OUT_MP4" > "$WORK/render.log" 2>&1); then
     pass "render.sh exited 0"
   else
