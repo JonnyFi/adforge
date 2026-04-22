@@ -856,6 +856,97 @@ else
   cat "$WORK/dispatcher-bfl-model.log"
 fi
 
+# 2f.7b — _snap_dims preserves aspect ratio when clamping (#34). The previous
+# _snap() clamped each dim independently, so 1728x2160 (4:5) came back as
+# 1440x1440 (1:1). _snap_dims scales proportionally first.
+if env -i PATH="$PATH" python3 - <<PY > "$WORK/bfl-aspect.log" 2>&1
+import importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location(
+    "bfl_aspect",
+    Path("$PROJECT/engines/static/image_providers/bfl.py"),
+)
+bfl = importlib.util.module_from_spec(spec); spec.loader.exec_module(bfl)
+
+# 4:5 portrait above the cap -> scales down proportionally to hit 1440 on the
+# taller side, shorter side scales to match the requested aspect ratio.
+w, h = bfl._snap_dims(1728, 2160)
+assert h == 1440, (w, h)  # the dim that hit the cap
+assert w % 32 == 0 and h % 32 == 0, (w, h)
+# aspect should be within one 32-step of requested 4:5 = 0.8
+ratio = w / h
+assert abs(ratio - 0.8) < 0.03, (w, h, ratio)
+
+# 16:9 wider than cap -> still preserves aspect
+w, h = bfl._snap_dims(1920, 1080)
+assert w == 1440, (w, h)
+assert abs((w / h) - (16 / 9)) < 0.05, (w, h)
+
+# already-valid dims pass through unchanged
+w, h = bfl._snap_dims(1024, 1024)
+assert (w, h) == (1024, 1024), (w, h)
+
+# dims below floor scale up proportionally
+w, h = bfl._snap_dims(100, 200)  # aspect 1:2
+assert w >= 256 and h >= 256
+assert abs((w / h) - 0.5) < 0.08, (w, h)
+print("ok")
+PY
+then
+  pass "bfl _snap_dims preserves aspect ratio when clamping"
+else
+  fail "bfl aspect-ratio snap"
+  cat "$WORK/bfl-aspect.log"
+fi
+
+# 2f.7c — generate_hero writes to the correct extension when the provider
+# returns a different format than the output path implies (#38).
+if env -i PATH="$PATH" python3 - <<PY > "$WORK/generate-hero-ext.log" 2>&1
+import importlib.util, sys, tempfile, os, io
+from pathlib import Path
+spec = importlib.util.spec_from_file_location(
+    "gh",
+    Path("$PROJECT/engines/static/generate_hero.py"),
+)
+gh = importlib.util.module_from_spec(spec); spec.loader.exec_module(gh)
+
+# Force the internal generate to return JPEG bytes
+gh.generate_hero = lambda prompt, w, h, provider=None: b"\xff\xd8\xff\xe0JPEG-ish"
+gh.pick_provider = lambda: "bfl"
+
+with tempfile.TemporaryDirectory() as td:
+    requested = Path(td) / "orbit_hero_4x5.png"
+    sys.argv = ["generate_hero.py", str(requested), "1024", "1024"]
+    sys.stdin = io.StringIO("prompt")
+
+    # capture stdout (the final path)
+    buf = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = buf
+    try:
+        rc = gh.main()
+    finally:
+        sys.stdout = old_stdout
+    assert rc == 0, rc
+
+    # requested .png should not exist
+    assert not requested.exists(), requested
+    # .jpg should exist
+    final = requested.with_suffix(".jpg")
+    assert final.exists(), final
+    assert final.read_bytes().startswith(b"\xff\xd8\xff"), "not JPEG"
+
+    # stdout reports the final path
+    assert buf.getvalue().strip().endswith("orbit_hero_4x5.jpg"), buf.getvalue()
+print("ok")
+PY
+then
+  pass "generate_hero rewrites extension to match returned format"
+else
+  fail "generate_hero extension rewrite"
+  cat "$WORK/generate-hero-ext.log"
+fi
+
 # 2f.8 — flux.sh is still callable (backcompat wrapper). Feeds stdin prompt
 # and a non-existent output path through a dry wrapper: we don't want a real
 # BFL call, so we intercept by replacing generate_hero.py's generate call via

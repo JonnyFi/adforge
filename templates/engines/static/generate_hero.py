@@ -41,6 +41,16 @@ _IMAGE_SIGNATURES: list[tuple[bytes, str]] = [
     # WebP: "RIFF....WEBP" — prefix + offset 8 check handled separately.
 ]
 
+_VALID_EXTS_FOR_FORMAT: dict[str, set[str]] = {
+    "PNG":  {".png"},
+    "JPEG": {".jpg", ".jpeg"},
+    "GIF":  {".gif"},
+    "WebP": {".webp"},
+}
+_CANONICAL_EXT_FOR_FORMAT: dict[str, str] = {
+    "PNG": ".png", "JPEG": ".jpg", "GIF": ".gif", "WebP": ".webp",
+}
+
 
 def _detect_format(data: bytes) -> str | None:
     for sig, name in _IMAGE_SIGNATURES:
@@ -196,9 +206,26 @@ def main() -> int:
         _eprint(f"[generate_hero] unexpected {type(e).__name__} from {name!r} — see CONTRACT.md")
         return 1
 
+    # Ensure the output path's extension matches the actual image format.
+    # Providers may legitimately return JPEG when the caller asked for PNG;
+    # writing JPEG bytes to a .png path leaves downstream tools (Meta upload,
+    # PIL Image.open, file(1)) to cope with a lying extension.
+    fmt = _detect_format(image_bytes)
+    if fmt and output_path.suffix.lower() not in _VALID_EXTS_FOR_FORMAT.get(fmt, set()):
+        new_path = output_path.with_suffix(_CANONICAL_EXT_FOR_FORMAT[fmt])
+        _eprint(
+            f"[generate_hero] provider returned {fmt} but output path was "
+            f"{output_path.name} — writing to {new_path.name} instead"
+        )
+        output_path = new_path
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(image_bytes)
     _eprint(f"[generate_hero] saved {output_path} ({len(image_bytes)} bytes)")
+    # Print the final path on stdout so callers can capture it — extension
+    # may differ from what they requested if the provider returned a
+    # different format.
+    print(output_path)
     return 0
 
 
