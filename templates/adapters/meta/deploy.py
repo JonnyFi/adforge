@@ -15,13 +15,18 @@ Env (in .env or exported):
     META_PIXEL_ID        (optional — for pixel-based optimization)
 """
 import argparse
+import fcntl
 import hashlib
 import json
 import os
+import re
 import sys
+import tempfile
 from pathlib import Path
 
 import requests
+
+from _http import bearer_headers, redact_body
 
 API = "https://graph.facebook.com/v22.0"
 
@@ -260,11 +265,18 @@ def _normalize_field(key, value):
 PASSTHROUGH_FIELDS = {"EXTERN_ID"}
 
 
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
+
 def _hash_or_passthrough(key, value):
     norm = _normalize_field(key, value)
     if not norm:
         return ""
     if key in PASSTHROUGH_FIELDS:
+        return norm
+    # If the input already looks like a SHA-256 hex digest, trust the caller
+    # and don't re-hash — double-hashing breaks the match on Meta's side.
+    if _SHA256_HEX.match(norm):
         return norm
     return hashlib.sha256(norm.encode("utf-8")).hexdigest()
 
@@ -489,21 +501,53 @@ def resolve_audience_refs(targeting, adset_name, state):
         targeting[field] = resolved
 
 
+STATE_VERSION = 1
+
+
 def state_load(path):
     if path.exists():
         data = json.loads(path.read_text())
+        stored = data.get("_version", 0)
+        if stored > STATE_VERSION:
+            raise SystemExit(
+                f"state file {path} was written by a newer adforge "
+                f"(_version={stored}, this binary understands {STATE_VERSION}). "
+                f"Upgrade adforge or run from the machine that owns the state."
+            )
         # backfill keys added in later versions
         data.setdefault("audiences", {})
+        data["_version"] = STATE_VERSION
         return data
     return {
+        "_version": STATE_VERSION,
         "images": {}, "videos": {}, "campaigns": {}, "adsets": {},
         "creatives": {}, "ads": {}, "audiences": {},
     }
 
 
 def state_save(path, state):
+    """Atomic + exclusive-locked write so concurrent deploy runs don't corrupt
+    state. Acquire flock on a sibling .lock, write to a tmp file in the same
+    directory, then os.replace — guarantees readers never see a partial file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, ensure_ascii=False))
+    state = dict(state)
+    state["_version"] = STATE_VERSION
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with open(lock_path, "w") as lock_f:
+        fcntl.flock(lock_f, fcntl.LOCK_EX)
+        try:
+            fd, tmp_name = tempfile.mkstemp(
+                prefix=path.name + ".",
+                suffix=".tmp",
+                dir=str(path.parent),
+            )
+            with os.fdopen(fd, "w") as tmp_f:
+                json.dump(state, tmp_f, indent=2, ensure_ascii=False)
+                tmp_f.flush()
+                os.fsync(tmp_f.fileno())
+            os.replace(tmp_name, path)
+        finally:
+            fcntl.flock(lock_f, fcntl.LOCK_UN)
 
 
 class Meta:
@@ -517,21 +561,17 @@ class Meta:
         if self.dry_run:
             print(f"  [dry-run] POST {path} {json.dumps(data, ensure_ascii=False)[:120]}")
             return {"id": f"dry_{hashlib.md5(path.encode()).hexdigest()[:8]}"}
-        data = dict(data or {})
-        data["access_token"] = self.token
         url = f"{API}/{path.lstrip('/')}"
-        r = self.s.post(url, data=data, files=files)
+        r = self.s.post(url, data=data or {}, files=files, headers=bearer_headers(self.token))
         if r.status_code >= 400:
-            raise RuntimeError(f"POST {path} failed {r.status_code}: {r.text}")
+            raise RuntimeError(f"POST {path} failed {r.status_code}: {redact_body(r.text)}")
         return r.json()
 
     def get(self, path, params=None):
-        params = dict(params or {})
-        params["access_token"] = self.token
         url = f"{API}/{path.lstrip('/')}"
-        r = self.s.get(url, params=params)
+        r = self.s.get(url, params=params or {}, headers=bearer_headers(self.token))
         if r.status_code >= 400:
-            raise RuntimeError(f"GET {path} failed {r.status_code}: {r.text}")
+            raise RuntimeError(f"GET {path} failed {r.status_code}: {redact_body(r.text)}")
         return r.json()
 
     # --- upload helpers ---
@@ -582,8 +622,59 @@ class Meta:
         )
 
 
+def _preflight_account(meta):
+    """Fail fast if the ad account isn't ACTIVE. Meta returns a cryptic
+    permissions error otherwise; users burn 30 minutes debugging the plan."""
+    if meta.dry_run:
+        return
+    try:
+        res = meta.get(meta.ad_account, {"fields": "account_status,name"})
+    except RuntimeError as e:
+        raise SystemExit(
+            f"preflight: could not read {meta.ad_account} — {e}.\n"
+            f"Check META_AD_ACCOUNT_ID and that META_ACCESS_TOKEN has ads_management on it."
+        ) from e
+    # 1 = ACTIVE; anything else (DISABLED, CLOSED, PENDING_REVIEW, IN_GRACE_PERIOD…)
+    # means deploy will fail in confusing ways partway through.
+    status = res.get("account_status")
+    if status != 1:
+        raise SystemExit(
+            f"preflight: ad account {meta.ad_account} has account_status={status} (need 1 = ACTIVE). "
+            f"Fix billing / review / suspension before deploying."
+        )
+
+
+def _preflight_pixel(meta, plan, pixel_id):
+    """Any adset with optimization_goal=OFFSITE_CONVERSIONS requires a reachable
+    pixel. Fail before creating anything rather than after N successful writes."""
+    needs_pixel = any(
+        adset.get("optimization_goal") == "OFFSITE_CONVERSIONS"
+        for campaign in plan.get("campaigns", [])
+        for adset in campaign.get("adsets", [])
+    )
+    if not needs_pixel:
+        return
+    if not pixel_id:
+        raise SystemExit(
+            "preflight: plan has OFFSITE_CONVERSIONS adsets but META_PIXEL_ID is not set."
+        )
+    if meta.dry_run:
+        return
+    try:
+        res = meta.get(pixel_id, {"fields": "id,name"})
+    except RuntimeError as e:
+        raise SystemExit(
+            f"preflight: pixel {pixel_id} is not readable with this token — {e}.\n"
+            f"Check META_PIXEL_ID and that the token has access to the pixel's business."
+        ) from e
+    if not res.get("id"):
+        raise SystemExit(f"preflight: pixel {pixel_id} returned an empty object")
+
+
 def deploy(plan, state, meta, project_root, page_id, pixel_id):
     """Walk the plan and create everything that doesn't yet exist in state."""
+    _preflight_account(meta)
+    _preflight_pixel(meta, plan, pixel_id)
     brand = load_brand(project_root)
     brand_locale = derive_locale(brand.get("domain", ""))
     ensure_audiences(plan, state, meta, project_root, pixel_id)

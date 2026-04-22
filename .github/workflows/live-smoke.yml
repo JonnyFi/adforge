@@ -1,0 +1,98 @@
+name: live-smoke
+
+# Weekly + on-demand smoke test against real provider APIs. Catches drift
+# (deprecated models, changed auth, response-shape breaks) before users hit it.
+#
+# Each provider runs in parallel. If a provider's secret is not set in the
+# repo, that matrix leg is skipped — nothing fails from a missing secret.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 6 * * 1"  # Monday 06:00 UTC
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [bfl, replicate, fal, openai, google, stability]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: check secret presence
+        id: secret
+        env:
+          BFL_API_KEY:            ${{ secrets.BFL_API_KEY }}
+          REPLICATE_API_TOKEN:    ${{ secrets.REPLICATE_API_TOKEN }}
+          FAL_KEY:                ${{ secrets.FAL_KEY }}
+          OPENAI_API_KEY:         ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY:         ${{ secrets.GEMINI_API_KEY }}
+          STABILITY_API_KEY:      ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          case "${{ matrix.provider }}" in
+            bfl)       KEY="$BFL_API_KEY" ;;
+            replicate) KEY="$REPLICATE_API_TOKEN" ;;
+            fal)       KEY="$FAL_KEY" ;;
+            openai)    KEY="$OPENAI_API_KEY" ;;
+            google)    KEY="$GEMINI_API_KEY" ;;
+            stability) KEY="$STABILITY_API_KEY" ;;
+          esac
+          if [ -z "$KEY" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no secret for ${{ matrix.provider }} — skipping"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: generate 512x512 via ${{ matrix.provider }}
+        if: steps.secret.outputs.present == 'true'
+        env:
+          IMAGE_PROVIDER:      ${{ matrix.provider }}
+          BFL_API_KEY:         ${{ secrets.BFL_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          FAL_KEY:             ${{ secrets.FAL_KEY }}
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          STABILITY_API_KEY:   ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          mkdir -p .live-smoke
+          OUT=".live-smoke/${{ matrix.provider }}.out"
+          echo "a solid blue square on a plain background" | \
+            python3 templates/engines/static/generate_hero.py "$OUT" 512 512
+
+      - name: assert image signature
+        if: steps.secret.outputs.present == 'true'
+        run: |
+          OUT=".live-smoke/${{ matrix.provider }}.out"
+          if [ ! -f "$OUT" ]; then
+            echo "no output at $OUT"; exit 1
+          fi
+          SIZE=$(stat -c%s "$OUT")
+          echo "got $SIZE bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "suspiciously small ($SIZE bytes)"; exit 1
+          fi
+          python3 - "$OUT" <<'PY'
+          import sys
+          data = open(sys.argv[1], "rb").read(16)
+          sigs = {
+              b"\x89PNG\r\n\x1a\n": "PNG",
+              b"\xff\xd8\xff":      "JPEG",
+          }
+          fmt = None
+          for sig, name in sigs.items():
+              if data.startswith(sig):
+                  fmt = name; break
+          if fmt is None and len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+              fmt = "WebP"
+          if fmt is None:
+              print(f"unknown format, first 16 bytes: {data.hex()}")
+              sys.exit(1)
+          print(f"ok — {fmt}")
+          PY

@@ -6,8 +6,10 @@ Verified: 2026-04-20
 
 Env:
     REPLICATE_API_TOKEN   required — https://replicate.com/account/api-tokens
-    REPLICATE_MODEL       optional — defaults to google/nano-banana-2
-                          (top trending model on Replicate as of 2026-04).
+    REPLICATE_MODEL       optional — defaults to black-forest-labs/flux-schnell
+                          (fast + cheap, good baseline for ad hero images).
+                          Upgrade to google/nano-banana-2, flux-dev, flux-1.1-pro
+                          etc. via this env var.
 
 Replicate speaks a queue-like API: POST /v1/models/<owner>/<name>/predictions
 returns a prediction with urls.get to poll. Passing `Prefer: wait=60` makes
@@ -20,14 +22,21 @@ from __future__ import annotations
 import json
 import math
 import os
+import socket
 import time
 import urllib.error
 import urllib.request
 
-DEFAULT_MODEL = "google/nano-banana-2"
+DEFAULT_MODEL = "black-forest-labs/flux-schnell"
 ENDPOINT = "https://api.replicate.com/v1"
 POLL_MAX_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2
+
+
+def _error_detail(body: str, limit: int = 300) -> str:
+    """Truncate an API error body for safe logging."""
+    s = (body or "").replace("\n", " ").strip()
+    return s[:limit] + ("…" if len(s) > limit else "")
 
 _SUPPORTED_ASPECTS = [
     (1, 1), (16, 9), (9, 16), (4, 3), (3, 4), (21, 9), (3, 2), (2, 3),
@@ -71,7 +80,9 @@ def _post(url: str, body: dict, wait: bool) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Replicate predict failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"Replicate predict failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"Replicate predict failed: network error ({type(e).__name__})") from e
 
 
 def _get(url: str) -> dict:
@@ -82,7 +93,9 @@ def _get(url: str) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Replicate poll failed: HTTP {e.code} — {detail}") from e
+        raise RuntimeError(f"Replicate poll failed: HTTP {e.code} — {_error_detail(detail)}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"Replicate poll failed: network error ({type(e).__name__})") from e
 
 
 def _download(url: str) -> bytes:
@@ -92,6 +105,8 @@ def _download(url: str) -> bytes:
             return resp.read()
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"Replicate output download failed: HTTP {e.code}") from e
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise RuntimeError(f"Replicate output download failed: network error ({type(e).__name__})") from e
 
 
 def _extract_url(output) -> str | None:
@@ -120,11 +135,12 @@ def generate(prompt: str, width: int, height: int) -> bytes:
 
     pred = _post(url, body, wait=True)
     status = pred.get("status", "")
+    pred_id = pred.get("id", "<unknown>")
 
     if status not in {"succeeded", "failed", "canceled"}:
         poll_url = pred.get("urls", {}).get("get")
         if not poll_url:
-            raise RuntimeError(f"Replicate response missing urls.get: {pred!r}")
+            raise RuntimeError(f"Replicate response missing urls.get (id={pred_id})")
         for _ in range(POLL_MAX_ATTEMPTS):
             time.sleep(POLL_INTERVAL_SECONDS)
             pred = _get(poll_url)
@@ -133,14 +149,18 @@ def generate(prompt: str, width: int, height: int) -> bytes:
                 break
         else:
             raise RuntimeError(
-                f"Replicate prediction {pred.get('id')!r} did not finish in "
+                f"Replicate prediction {pred_id} did not finish in "
                 f"{POLL_MAX_ATTEMPTS * POLL_INTERVAL_SECONDS}s"
             )
 
     if status != "succeeded":
-        raise RuntimeError(f"Replicate prediction ended in status {status}: {pred!r}")
+        err = (pred.get("error") or "")[:200]
+        raise RuntimeError(
+            f"Replicate prediction {pred_id} ended in status {status}"
+            + (f": {err}" if err else "")
+        )
 
     out_url = _extract_url(pred.get("output"))
     if not out_url:
-        raise RuntimeError(f"Replicate succeeded but output missing a URL: {pred!r}")
+        raise RuntimeError(f"Replicate prediction {pred_id} succeeded but output has no URL")
     return _download(out_url)

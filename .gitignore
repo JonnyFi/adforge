@@ -5,6 +5,7 @@ node_modules/
 .env.local
 adforge-*.tgz
 .backlog-*.md
+.ci-outputs/
 assets/*
 !assets/social-preview.png
 __pycache__/

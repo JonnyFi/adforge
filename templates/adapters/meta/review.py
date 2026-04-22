@@ -11,9 +11,13 @@ import argparse
 import datetime as dt
 import json
 import os
+import sys
 from pathlib import Path
 
 import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _http import bearer_headers, redact_body
 
 API = "https://graph.facebook.com/v22.0"
 
@@ -41,13 +45,12 @@ def find_project_root(start):
 def get_insights(token, obj_id, days):
     date_preset = {1: "yesterday", 7: "last_7d", 14: "last_14d", 28: "last_28d", 30: "last_30d"}.get(days, "last_7d")
     params = {
-        "access_token": token,
         "fields": "impressions,reach,spend,clicks,ctr,cpm,cpc,actions,action_values",
         "date_preset": date_preset,
     }
-    r = requests.get(f"{API}/{obj_id}/insights", params=params)
+    r = requests.get(f"{API}/{obj_id}/insights", params=params, headers=bearer_headers(token))
     if r.status_code >= 400:
-        return {"error": r.text}
+        return {"error": redact_body(r.text)}
     return r.json().get("data", [{}])[0]
 
 

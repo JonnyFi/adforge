@@ -6,8 +6,54 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
+  motion-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: install ffmpeg + chromium deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libpango-1.0-0 libcairo2 libasound2t64
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install motion deps
+        working-directory: templates/engines/motion
+        run: npm ci || npm install
+
+      - name: render ci-smoke walkthrough
+        working-directory: templates
+        run: |
+          mkdir -p .ci-outputs
+          ./engines/motion/render.sh \
+            variants/walkthrough-ci-smoke.json \
+            walkthrough \
+            .ci-outputs/walkthrough-ci-smoke.mp4
+
+      - name: assert output size
+        run: |
+          OUT="templates/.ci-outputs/walkthrough-ci-smoke.mp4"
+          if [ ! -f "$OUT" ]; then echo "no output mp4 at $OUT"; exit 1; fi
+          SIZE=$(stat -c%s "$OUT")
+          echo "rendered $OUT — $SIZE bytes"
+          if [ "$SIZE" -lt 102400 ]; then
+            echo "output mp4 suspiciously small ($SIZE bytes, want >100KB)"
+            exit 1
+          fi
+
   publish:
     runs-on: ubuntu-latest
+    needs: motion-smoke
     permissions:
       id-token: write      # still needed for --provenance (sigstore signing)
       contents: read

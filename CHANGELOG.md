@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.2 — 2026-04-22
+
+Follow-up critical fixes that were open after the 0.3.1 post-audit pass. Pulled
+forward into this release instead of deferring to backlog: secret-leak risk in
+error logs (#25), silent provider failures (#26), motion-pipeline drift (#27),
+Meta adapter race/fragility (#29), and zero live API coverage (#31).
+
+### Fixed
+
+- **Access tokens no longer leak into error messages or query-string logs (#25).** All four Meta adapter modules now send `META_ACCESS_TOKEN` as an `Authorization: Bearer …` header instead of as `access_token=` in `params`/`data`. Error bodies pass through a shared `redact_body()` that strips `access_token` / `password` / `client_secret` / `appsecret_proof` values and truncates to 300 chars before hitting stderr. Image-provider modules now surface network errors as `(URLError)` / `(socket.timeout)` type names — full `{resp!r}` / `{pred!r}` dumps are gone so prompt text and nested keys don't spill into CI logs.
+- **Image providers hand back bytes that are actually images (#26).** `generate_hero.py` validates the returned blob against PNG / JPEG / GIF / WebP magic bytes and rejects HTML error pages or truncated responses before writing to disk. The dispatcher also runs `inspect.signature` on each adapter's `generate()` to catch contract drift at load time. Replicate's default switched to `black-forest-labs/flux-schnell` (fast + cheap baseline). OpenAI gained an `OPENAI_QUALITY` env with `medium` default so iteration rounds don't accidentally burn "high" credits. BFL now snaps width/height into its supported `[256, 1440]` mult-of-32 range instead of 400 HTTP-ing on arbitrary sizes.
+- **Meta adapter state survives concurrent runs and fails fast on bad accounts (#29).** `state_save()` writes through `tempfile.mkstemp` + `os.fsync` + `os.replace`, gated by an `fcntl.flock` on a sibling `.lock` file — no more partial-write corruption when two deploys race. State files carry a `_version: 1` stamp so older binaries refuse to clobber forward-incompatible state. A `_preflight_account()` check asserts `account_status == 1 (ACTIVE)` before any writes, and `_preflight_pixel()` resolves `META_PIXEL_ID` up front for plans that have `OFFSITE_CONVERSIONS` adsets. `upload_customer_file` detects input that's already a SHA-256 hex digest and skips re-hashing so pre-hashed audiences match on Meta's side.
+- **Motion rendering is now CI-enforced (#27).** `release.yml` has a `motion-smoke` job that installs ffmpeg + chromium headless deps, `npm ci`s the motion template, and renders `variants/walkthrough-ci-smoke.json` end-to-end — asserting the resulting mp4 is >100KB. `publish` depends on it, so a broken Remotion pin, missing chromium dep, or ffmpeg regression blocks release. Remotion is now pinned to `^4.0.320` with a committed `package-lock.json`, and three placeholder screen PNGs ship at `engines/motion/public/screens/` so the default walkthrough renders out-of-the-box.
+- **Live-API smoke workflow (#31).** New `.github/workflows/live-smoke.yml` runs weekly (Monday 06:00 UTC) and on-demand via `workflow_dispatch`. Six-provider matrix (`bfl`, `replicate`, `fal`, `openai`, `google`, `stability`) generates a 512×512 test image and asserts PNG/JPEG/WebP magic bytes on the output. Providers whose secret isn't set in the repo are skipped cleanly — so the workflow can exist on day one without all six keys. Catches model deprecations / auth format changes before users do.
+
 ## 0.3.1 — 2026-04-21
 
 Post-release fix pass driven by a Karpathy-style 3-stage LLM council audit. Six criticals (Meta adapter compliance + rendering correctness) plus tooling hardening.

@@ -22,11 +22,33 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 from pathlib import Path
 
 PROVIDERS_DIR = Path(__file__).parent / "image_providers"
+
+# Magic-byte signatures for the image formats any provider may legitimately
+# return. If the bytes we got back don't match, the provider handed us an
+# error payload, HTML, or truncated response — surface it immediately rather
+# than writing a broken file to disk.
+_IMAGE_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"\x89PNG\r\n\x1a\n", "PNG"),
+    (b"\xff\xd8\xff",      "JPEG"),
+    (b"GIF87a",            "GIF"),
+    (b"GIF89a",            "GIF"),
+    # WebP: "RIFF....WEBP" — prefix + offset 8 check handled separately.
+]
+
+
+def _detect_format(data: bytes) -> str | None:
+    for sig, name in _IMAGE_SIGNATURES:
+        if data.startswith(sig):
+            return name
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "WebP"
+    return None
 
 # Auto-detect order. First match wins. Keep in sync with CONTRACT.md + README.
 DETECTION_ORDER = [
@@ -102,6 +124,21 @@ def load_provider(name: str):
             f"Provider {name!r} does not define generate(prompt, width, height). "
             f"See engines/static/image_providers/CONTRACT.md."
         )
+    try:
+        sig = inspect.signature(module.generate)
+        params = list(sig.parameters.values())
+    except (TypeError, ValueError):
+        params = None
+    if params is not None:
+        required = [p for p in params if p.default is inspect.Parameter.empty
+                    and p.kind in (inspect.Parameter.POSITIONAL_ONLY,
+                                   inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+        if len(required) != 3:
+            raise RuntimeError(
+                f"Provider {name!r} generate() must accept exactly 3 required args "
+                f"(prompt, width, height); got {len(required)}. "
+                f"See engines/static/image_providers/CONTRACT.md."
+            )
     return module
 
 
@@ -109,7 +146,19 @@ def generate_hero(prompt: str, width: int, height: int, provider: str | None = N
     """Programmatic entry point — pick a provider and return image bytes."""
     name = provider or pick_provider()
     module = load_provider(name)
-    return module.generate(prompt, width, height)
+    data = module.generate(prompt, width, height)
+    if not isinstance(data, (bytes, bytearray)):
+        raise RuntimeError(
+            f"Provider {name!r} returned {type(data).__name__}; "
+            f"CONTRACT.md requires bytes."
+        )
+    if _detect_format(bytes(data)) is None:
+        head = bytes(data[:8]).hex()
+        raise RuntimeError(
+            f"Provider {name!r} returned {len(data)} bytes that are not PNG/JPEG/GIF/WebP "
+            f"(first 8 bytes: {head}). Likely an error payload or truncated response."
+        )
+    return bytes(data)
 
 
 def main() -> int:
@@ -143,8 +192,8 @@ def main() -> int:
     except RuntimeError as e:
         _eprint(f"[generate_hero] provider {name!r} failed: {e}")
         return 1
-    except Exception as e:  # noqa: BLE001 — surface anything providers leak
-        _eprint(f"[generate_hero] unexpected error from {name!r}: {e}")
+    except Exception as e:  # noqa: BLE001 — surface type only; provider contract
+        _eprint(f"[generate_hero] unexpected {type(e).__name__} from {name!r} — see CONTRACT.md")
         return 1
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
