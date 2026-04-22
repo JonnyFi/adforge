@@ -13,6 +13,27 @@ Layouts in `engines/static/examples/` are *reference implementations*, not templ
 
 - **This skill produces a module file under `engines/static/examples/<name>.py`. Always.** Never draft an inline Python script, never a one-off PIL job, never a scratch file outside the engine dir. The output has to land in the engine dir so auto-discovery picks it up and every future user of the project — including the user who ran `npx adforge init` — inherits it. A one-off script solves today's request and loses all the brand-specific layout work the moment the conversation ends.
 - **Synth means new, not rename.** If you're tempted to copy an existing layout module and change two fields, that's reuse, not synthesis — hand the brief back to `composer-speccer` to use the existing layout as-is. Synth only fires when the reference or brief is structurally different from every existing layout.
+- **Don't default to the advertorial shape.** If your proposed macro-structure ends up as "hero image band on top (~50–60%) + text band below (eyebrow → headline → body → footnote)", stop. That IS the `advertorial` layout with `hero_mode: "top_band"`. Either (a) the brief actually fits `advertorial` — hand back to `composer-speccer` to reuse it with new fields and schema extensions, or (b) the brief needs a structurally different architecture (see the menu below). A 200+ line new module that reproduces the advertorial split is overhead, not novelty — and the creative output will look interchangeable with every other brand's ad.
+
+## Macro-structure — pick before drawing
+
+A layout's novelty lives in its macro-structure, not in its subcomponents. Before drafting code, decide which of these architectures the brief calls for. If none of them fits and you end up back at "hero-top + text-bottom", reuse `advertorial` instead of cloning it.
+
+| Architecture | When to use | What it looks like |
+|---|---|---|
+| `advertorial` (existing) | Editorial feature / case study / article lead-in | Eyebrow + serif headline + body lede, optional top_band hero |
+| `quote-card` (existing) | Single-sentence pull-quote, testimonial, positioning line | Giant serif quote centered, attribution below |
+| `stat-card` (existing) | One hard number carries the story | Oversized number + label + support + required source |
+| **full-bleed overlay** | Hero image IS the message; text overlays on it | Image fills 100% of canvas, semi-transparent band or free-standing text sits on top |
+| **split-screen 50/50** | Direct comparison, before/after, A vs B | Canvas split vertically or horizontally into two equal halves with distinct content each side |
+| **stacked vertical (3 zones)** | Step-by-step, ingredient list, tier comparison | Three equal bands top-to-bottom, each with its own label + visual |
+| **grid-of-N with shared caption** | Product range, testimonial roster, icon set | 2×2 or 3×1 grid of objects/faces, single caption ties them together |
+| **centered-subject with radial text** | One product or person as the lens, copy orbits it | Hero cutout/photo centered, eyebrow above, headline below, fine print flowing around |
+| **diagonal split with text on one side** | Dynamic/energetic positioning, deal framing | Canvas cut by a diagonal seam, image on one side, solid color + text on the other |
+| **diptych (two panels, shared frame)** | Before/after, contrast, cause/effect narrative | Two stacked panels with a shared header and a single unifying caption |
+| **meme-frame** | Punchline-led, internet-native angle | Top caption + image + bottom caption in the classic meme structure |
+
+This menu is not exhaustive — invent a new architecture if the brief calls for it. But if the brief maps cleanly to one of the existing three shipped layouts, use that instead of synthesizing a near-duplicate.
 
 ## When to invoke
 
@@ -46,11 +67,13 @@ Show the schema to the user and get sign-off before writing code.
 
 ### 3. Draft the layout module
 
-Template the new file after an existing layout that's structurally nearest:
+Template from the existing layout whose `SCHEMA` + rendering helpers are closest to what you need — but only as a starting point for imports and the `render(canvas, variant, brand, size, band_h)` signature. Don't carry over the macro-structure of that template if your chosen architecture from the menu above is different.
 
-- Text-heavy, editorial → start from `advertorial.py`
-- Single-sentence focal → start from `quote_card.py`
-- Number-or-symbol hero → start from `stat_card.py`
+- Need `wrap_text` + headline rendering? → `quote_card.py` is the minimal starting point.
+- Need italicized-word handling inside a headline? → `advertorial.py` has the pattern.
+- Need bbox-aware vertical stacking? → `stat_card.py` has the cleanest example.
+
+The point of copying is inheriting the helper-usage pattern, not the shape.
 
 Rules — non-negotiable:
 
