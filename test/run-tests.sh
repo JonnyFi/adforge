@@ -1167,6 +1167,56 @@ else
   cat "$WORK/dispatcher-order.log"
 fi
 
+# 2g.7 — shared.base_canvas warns + falls back on unknown hero_mode (#35)
+if python3 - <<PY > "$WORK/hero-mode-fallback.log" 2>&1
+import sys
+sys.path.insert(0, "$PROJECT/engines/static")
+from shared import Brand, base_canvas, VALID_HERO_MODES
+import json, pathlib
+
+brand_json = json.loads((pathlib.Path("$PROJECT") / "brand.json").read_text())
+brand = Brand(brand_json, pathlib.Path("$PROJECT"))
+
+# Unknown mode -> warn to stderr, canvas still rendered
+import io, contextlib
+buf = io.StringIO()
+with contextlib.redirect_stderr(buf):
+    canvas, band_h = base_canvas((400, 500), {"hero_mode": "generated"}, brand)
+assert canvas.size == (400, 500), canvas.size
+assert band_h == 0
+stderr = buf.getvalue()
+assert "unknown hero_mode='generated'" in stderr, stderr
+for mode in VALID_HERO_MODES:
+    assert mode in stderr, f"missing {mode} in: {stderr}"
+
+# Valid mode does NOT warn
+buf2 = io.StringIO()
+with contextlib.redirect_stderr(buf2):
+    base_canvas((400, 500), {"hero_mode": "flat_brand_color"}, brand)
+assert "unknown hero_mode" not in buf2.getvalue(), buf2.getvalue()
+
+# background w/o hero_path -> warn + fall back (not silent)
+buf3 = io.StringIO()
+with contextlib.redirect_stderr(buf3):
+    base_canvas((400, 500), {"hero_mode": "background"}, brand)
+assert "requires 'hero_image'" in buf3.getvalue(), buf3.getvalue()
+PY
+then
+  pass "unknown hero_mode warns and falls back (not silent)"
+else
+  fail "hero_mode fallback"
+  cat "$WORK/hero-mode-fallback.log"
+fi
+
+# 2g.8 — .env.example advertises the actual Replicate default model (#36)
+if grep -q "black-forest-labs/flux-schnell" "$PROJECT/.env.example" \
+  && ! grep -q "google/nano-banana-2" "$PROJECT/.env.example"; then
+  pass ".env.example Replicate default matches replicate.py"
+else
+  fail ".env.example Replicate default stale"
+  grep -n "REPLICATE\|nano-banana\|flux-schnell" "$PROJECT/.env.example" || true
+fi
+
 deactivate
 
 # ---------------------------------------------------------------------------
