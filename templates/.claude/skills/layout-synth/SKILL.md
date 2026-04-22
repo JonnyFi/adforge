@@ -9,6 +9,11 @@ Turn a reference image into an executable `engines/static/examples/<name>.py`. T
 
 Layouts in `engines/static/examples/` are *reference implementations*, not templates. Each new layout should be structurally distinct from existing ones — two brands using `advertorial` should never produce ads that look identical. If a reference is a cosmetic variant of an existing layout, extend the existing schema; don't clone.
 
+## Non-negotiable
+
+- **This skill produces a module file under `engines/static/examples/<name>.py`. Always.** Never draft an inline Python script, never a one-off PIL job, never a scratch file outside the engine dir. The output has to land in the engine dir so auto-discovery picks it up and every future user of the project — including the user who ran `npx adforge init` — inherits it. A one-off script solves today's request and loses all the brand-specific layout work the moment the conversation ends.
+- **Synth means new, not rename.** If you're tempted to copy an existing layout module and change two fields, that's reuse, not synthesis — hand the brief back to `composer-speccer` to use the existing layout as-is. Synth only fires when the reference or brief is structurally different from every existing layout.
+
 ## When to invoke
 
 - User uploads an image or mockup and says "I want ads like this".

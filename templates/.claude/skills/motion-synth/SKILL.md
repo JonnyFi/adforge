@@ -7,6 +7,12 @@ description: Backend skill — read a motion reference (video, GIF, or storyboar
 
 Turn a motion reference into an executable `engines/motion/src/examples/<Name>.tsx` — a Remotion composition specific to the current brand's brief. Built on the shared `primitives/` vocabulary so new compositions don't end up as reskins of `OpsConsole`.
 
+## Non-negotiable
+
+- **This skill produces a composition file under `engines/motion/src/examples/<Name>.tsx` and registers it in `Root.tsx`. Always.** Never ship a motion creative by pointing a new brand's variant at `ops-console`, `product-mockup`, `walkthrough`, or `phone-notifications` with swapped copy. That's reskinning — the exact anti-pattern this skill exists to prevent (see "Why this exists"). The HaniCare-dispatcher look generalises: any brand that reuses `ops-console` gets the HaniCare-dispatcher look.
+- **Synth means new composition, not new variant.** If you're tempted to write `"composition": "ops-console"` in a variant JSON for a new brand, stop and run this skill instead. A variant is copy + numbers; a composition is structure + motion idiom. Brand-specific motion needs brand-specific composition.
+- **Existing example compositions are reference only.** `ops-console` / `product-mockup` / `walkthrough` / `phone-notifications` were built for specific briefs and kept in the repo as motion-grammar examples. They are not a catalogue to pick from.
+
 ## When to invoke
 
 - User shows a video, GIF, or storyboard and says "I want a Reels like this".

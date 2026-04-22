@@ -1,6 +1,6 @@
 ---
 name: adforge
-description: Brief-to-live-ad hub. Invoke when user says "start adforge", "adforge", or wants to work on ads/creatives/campaigns in this project.
+description: Brief-to-live-ad hub. Invoke on ANY ad/creative/variant/static/motion/reel/hero/campaign request in this project — not just the literal word "adforge". Matches phrasings like "make me a static", "draft an ad", "generate a reel", "create a creative", "something wild with X", "new variant for Y", "quick test image". Use as the entry point even for one-off requests; never bypass straight to compose.py, render.sh, generate_hero.py, or one-off scripts.
 ---
 
 # adforge — hub
