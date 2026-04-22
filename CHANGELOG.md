@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.3.3 — 2026-04-22
+
+Targeted fix release for a skill-routing gap that let agents bypass the synth
+skills. Two live incidents during 0.3.2 E2E testing showed the same failure
+shape: a user asked for a creative in free-text ("make me something wild", "run
+the Orbit E2E"), the agent went straight to `compose.py` / `render.sh` with a
+shipped example variant, and the result was either a one-off script (no inherit
+path) or a reskin of an existing composition (every brand ends up looking
+identical). 0.3.3 closes the three surfaces that permitted the bypass.
+
+### Fixed
+
+- **Free-text ad requests now route through the `adforge` hub (#41).** The hub's
+  skill `description` was matching only literal "adforge" / "start adforge"
+  phrasings, so asks like "draft an ad", "make me a static", "generate a reel"
+  never triggered hub-based routing. `AGENTS.md` now lists example phrasings
+  and the anti-patterns explicitly; the hub description is broader; and
+  `composer-speccer` / `layout-synth` / `motion-synth` each gained
+  "Non-negotiable" preambles forbidding inline compose code, reuse of example
+  compositions for new brands with swapped copy, and "topical match"
+  shortcutting (two B2B brands on the same composition does not make it "fit").
+- **`compose.py` and `render.sh` redirect to the synth skills on miss (#42).**
+  Before, "unknown layout X" / Remotion's terse composition error left the
+  agent without a recovery path. Now both errors name the synth skill,
+  explain the module gets auto-discovered, and explicitly forbid editing
+  `compose.py`, monkey-patching the registry, or writing an inline PIL script
+  as a workaround. `render.sh` pre-checks the composition id against
+  `Root.tsx` before shelling out to `npx remotion`, so the redirect fires
+  before Remotion's own error surfaces.
+- **Example variants moved under `variants/_reference/` + layout/composition
+  headers (#43).** Top-level `variants/example.json`,
+  `ops-console-example.json`, `quote-card-example.json`, and
+  `stat-card-example.json` were indistinguishable from user content to agents
+  scanning the folder — lowest-friction path was copy-paste. They now live
+  under `variants/_reference/` with a README explaining the folder purpose
+  and pointing at the skill chain. Every shipped layout module
+  (`advertorial.py`, `quote_card.py`, `stat_card.py`) and motion composition
+  (`OpsConsole.tsx`, `ProductMockup.tsx`, `Walkthrough.tsx`,
+  `PhoneNotifications.tsx`) gained a `REFERENCE IMPLEMENTATION` header that
+  calls out when reuse is appropriate vs when to invoke synth.
+  `walkthrough-ci-smoke.json` stays at variant root — it's CI infrastructure.
+
 ## 0.3.2 — 2026-04-22
 
 Follow-up critical fixes that were open after the 0.3.1 post-audit pass. Pulled

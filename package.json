@@ -1,6 +1,6 @@
 {
   "name": "adforge",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Brief-to-live-ad pipeline for Meta — runs inside Claude Code, Codex, or any agent. Static + motion creatives, idempotent deploy.",
   "bin": {
     "adforge": "bin/adforge.js"
