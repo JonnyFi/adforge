@@ -7,6 +7,12 @@ description: First-time onboarding — API keys, brand tokens, font files, dry-r
 
 Onboard a new user. Keys first (so image generation and Meta work downstream), then brand and fonts, then a dry-run to prove the pipeline renders.
 
+## User-facing language — non-negotiable
+
+- Ask questions one at a time. **Don't pre-announce** upcoming questions ("Reply 'go' and I'll: 1. ... 2. ... 3. ask you about X"). The user shouldn't see the skill's internal chapter structure — just get asked the next thing.
+- **Translate question prompts into `voice.locale`** (the user's language). In German: "Markenzeichen" / "Logo" / "Wortmarke" for the brand mark, "Schriftarten" for fonts, "Marken-Farben" for colors.
+- Use product-level terms with the user. Never surface internal key names: don't say "chrome", "hero_mode", "band_h", "apply_chrome" — translate to "brand mark", "background style", etc.
+
 ## 1. Check runtime
 
 Run `adforge doctor` (or the equivalent checks inline): Node 18+, Python 3, pip, ffmpeg, and Playwright (for brand extraction from JS-rendered sites). Missing → tell the user what to install. Playwright is optional but strongly recommended — without it, brand extraction falls back to plain HTML and breaks on any modern site.
@@ -125,7 +131,9 @@ If Playwright isn't available or you can't extract a reliable family, skip to (C
 
 **Verification:** after fonts land, `ls ./fonts/` should show at least 3 files (minimum: one serif, one sans, one mono). `brand.json.fonts` should have `serif_family`, `sans_family`, `mono_family` strings plus the filename entries. If a TTF is missing at render, the static engine logs a warning and falls back to PIL's default, the motion engine falls back to the CSS generic (serif/sans-serif/monospace) — neither crashes, both render ugly. Tell the user so they know to fix it.
 
-## 4. Chrome — brand mark on every creative (opt-in)
+## 4. Brand mark — recurring logo/wordmark on every creative (opt-in)
+
+> **User-facing language:** always call this the "brand mark" / "logo" / "wordmark". The word *chrome* is an internal key name in `brand.json` — never surface it in messages to the user ("the chrome question", "configure chrome", etc.). Translate into the user's locale — in German it's "Markenzeichen" / "Logo" / "Wortmarke".
 
 Ask the user (in their `voice.locale` — translate the prompt if locale is non-English):
 
@@ -136,7 +144,7 @@ Ask the user (in their `voice.locale` — translate the prompt if locale is non-
 > - **c)** Logo image — you drop in a PNG, adforge places it on every ad.
 > - **d)** Not sure, decide for me → defaults to (b): text wordmark, bottom-left, serif-italic, accent color, 64px.
 
-Don't configure chrome unless the user picks (b), (c), or (d). No chrome block = naked canvas, which is the right default for most first-time users.
+Don't configure the brand mark unless the user picks (b), (c), or (d). No mark = naked canvas, which is the right default for most first-time users.
 
 ### If (b) — text wordmark
 

@@ -39,6 +39,8 @@ For `engine: "motion"`, add: `composition` (shipped examples: `ops-console`, `pr
 
 Brand wordmark placement isn't a variant field — it's configured once in `brand.json → chrome.wordmark` (or omitted for naked creatives). Don't add wordmark text into variants.
 
+If the user's brief explicitly asks for a wordmark, logo, or brand mark on the creative itself (e.g. "end frame with the wordmark", "bottom-left logo"), check `brand.json` first. If there's no `chrome.wordmark` block, surface the decision to the user in their locale before handing off — in English: "Your brand hasn't opted into a recurring mark yet. Want me to add a wordmark to `brand.json` so this (and future ads) pick it up?" In German: "Markenzeichen/Logo". Never silently drop the brief's requirement by routing to synth without the opt-in in place.
+
 ## Defaults — follow unless user asks otherwise
 
 - **`formats`: `["4x5", "9x16"]`** — 4x5 goes to Feed (FB + IG), 9x16 goes to Stories (and Reels for motion). Never default to 1x1 (legacy placement, downranked). Never ship only one format "for later" — Meta's delivery rewards multi-placement from day one.
