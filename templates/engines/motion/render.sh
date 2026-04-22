@@ -29,6 +29,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
+# Pre-check the composition id is registered in Root.tsx. Remotion's own
+# error is terse; we want the agent/user to see the skill redirect path.
+if ! grep -qE "id=\"$COMPOSITION\"" src/Root.tsx; then
+  REGISTERED=$(grep -oE 'id="[^"]+"' src/Root.tsx | sed 's/id=//;s/"//g' | tr '\n' ' ')
+  cat >&2 <<EOF
+error: unknown composition '$COMPOSITION'.
+  registered in engines/motion/src/Root.tsx: $REGISTERED
+
+  To add a new composition, invoke the \`motion-synth\` skill — it synthesizes
+  a new <Name>.tsx under engines/motion/src/examples/ and registers it in
+  Root.tsx. Do NOT reuse an existing composition (ops-console, product-mockup,
+  walkthrough, phone-notifications) for a new brand by swapping variant copy —
+  that's reskinning, not a new ad.
+EOF
+  exit 2
+fi
+
 if [[ ! -d node_modules ]]; then
   echo "[render] installing deps (first run)..."
   npm install --silent

@@ -42,7 +42,16 @@ def main():
     registry = discover()
     layout_name = variant.get("layout", "advertorial")
     if layout_name not in registry:
-        raise SystemExit(f"error: unknown layout '{layout_name}'. available: {sorted(registry)}")
+        raise SystemExit(
+            f"error: unknown layout '{layout_name}'.\n"
+            f"  available in engines/static/examples/: {sorted(registry)}\n"
+            f"\n"
+            f"  To add a new layout, invoke the `layout-synth` skill — it synthesizes\n"
+            f"  a new module under engines/static/examples/<name>.py (auto-discovered\n"
+            f"  on the next run). Do NOT edit compose.py, monkey-patch the registry,\n"
+            f"  or draft an inline PIL script — the new layout has to land as a module\n"
+            f"  so every user of this project inherits it."
+        )
 
     size = FORMATS[args.format]
     canvas, band_h = base_canvas(size, variant, brand)
