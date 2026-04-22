@@ -185,6 +185,6 @@ Just write option (b)'s text-wordmark config. Tell the user: "If you ship a batc
 
 ## 5. Dry-run
 
-Compose a static creative from `variants/example.json` and a motion from `variants/ops-console-example.json`. Show the user the output files. If that works, setup is done.
+Compose a static creative from `variants/_reference/example.json` and a motion from `variants/_reference/ops-console-example.json`. Tell the user upfront these are *shape references*, not templates they'd ship — the point is to prove the toolchain works end-to-end. Show the user the output files. If that works, setup is done.
 
 Finish: "You're ready. Type 'adforge' anytime to come back to the hub."

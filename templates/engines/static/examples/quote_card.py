@@ -1,5 +1,10 @@
 """quote-card — big centered serif pull-quote + attribution.
 
+REFERENCE IMPLEMENTATION. If a brief calls structurally for a pull-quote
+(one sentence, attribution), composer-speccer can reuse this layout; for
+anything structurally different, invoke `layout-synth` to write a new
+module under engines/static/examples/.
+
 Use when a single sentence does the heavy lifting (testimonial, founder line).
 """
 from PIL import ImageDraw

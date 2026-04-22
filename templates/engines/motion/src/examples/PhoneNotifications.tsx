@@ -1,3 +1,10 @@
+/**
+ * PhoneNotifications — REFERENCE COMPOSITION.
+ *
+ * Lockscreen + cascading notification pills. Reuse only when the brand's
+ * story is literally a phone-lockscreen narrative; invoke `motion-synth`
+ * otherwise.
+ */
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { brand } from "../brand";
 import { ChromeOverlay } from "../primitives";

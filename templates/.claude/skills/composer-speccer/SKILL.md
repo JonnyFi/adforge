@@ -25,7 +25,7 @@ Every variant file has:
 }
 ```
 
-For `engine: "static"`, add: `layout` (pick from the registry — see below), `formats` (array), and layout-specific fields. Look at existing files in `variants/` for reference.
+For `engine: "static"`, add: `layout` (pick from the registry — see below), `formats` (array), and layout-specific fields. See `variants/_reference/` for the shape of each shipped layout (reference only — never copy wholesale into a new variant).
 
 Available layouts are auto-discovered from `engines/static/examples/`. Shipped as reference implementations: `advertorial`, `quote-card`, `stat-card`. Each module exports a `SCHEMA` dict naming the variant fields it consumes — check the module to see what's expected before drafting. If none of the registered layouts fits the brief, hand off to the `layout-synth` skill first; it will write a new module under `engines/static/examples/` and make it available to the registry.
 
