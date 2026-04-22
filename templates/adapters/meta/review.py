@@ -111,7 +111,7 @@ def main():
 
     reports_dir = project_root / ".adforge" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    ts = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = reports_dir / f"review-{args.level}-{args.days}d-{ts}.json"
     out.write_text(json.dumps({"generated_at": ts, "level": args.level, "days": args.days, "rows": rows}, indent=2))
     print(f"\nreport: {out.relative_to(project_root)}")
